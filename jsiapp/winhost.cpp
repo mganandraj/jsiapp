@@ -4,6 +4,8 @@
 #include "stdafx.h"
 #include "winhost.h"
 
+#include "eventloop.h"
+
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -20,7 +22,8 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 int APIENTRY winHostSetup(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+                     _In_ int       nCmdShow,
+                      EventLoop& eventLoop)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
@@ -50,6 +53,8 @@ int APIENTRY winHostSetup(_In_ HINSTANCE hInstance,
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+    
+        eventLoop.loop();
     }
 
     return (int) msg.wParam;

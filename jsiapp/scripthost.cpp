@@ -104,16 +104,14 @@ ScriptHost::ScriptHost()
     jsi::Object::createFromHostObject(*runtime_, MyHostObject::getHostObject())
   );
 
-
   runtime_->global().setProperty(*runtime_, "setTimeout",
-    facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "setTimeout"), 2, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
+    facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "settimeout"), 2, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
     if (count != 2) {
       throw std::invalid_argument("Function setTimeout expects 2 arguments");
     }
 
-    double returnValue = this->setTimeout([&runtime, func = std::move(args[0].getObject(runtime).asFunction(runtime))](double timeoutId) -> void { func.call(runtime, timeoutId); }, typedjsi::get<double>(runtime, args[1]) /*ms*/);
-
-    return facebook::jsi::detail::toValue(runtime, returnValue);
+    double returnvalue = this->setTimeout(args[0].getObject(runtime).asFunction(runtime), typedjsi::get<double>(runtime, args[1]) /*ms*/);
+    return facebook::jsi::detail::toValue(runtime, returnvalue);
   }));
 
   runtime_->global().setProperty(*runtime_, "setImmediate",
@@ -122,8 +120,7 @@ ScriptHost::ScriptHost()
       throw std::invalid_argument("Function setImmediate expects 1 arguments");
     }
 
-    double returnValue = this->setImmediate([&runtime, func = std::move(args[0].getObject(runtime).asFunction(runtime))](double timeoutId) -> void { func.call(runtime, timeoutId); });
-
+    double returnValue = this->setImmediate(args[0].getObject(runtime).asFunction(runtime));
     return facebook::jsi::detail::toValue(runtime, returnValue);
   }));
 
@@ -133,8 +130,7 @@ ScriptHost::ScriptHost()
       throw std::invalid_argument("Function setInterval expects 2 arguments");
     }
 
-    double returnValue = this->setInterval([&runtime, func = std::move(args[0].getObject(runtime).asFunction(runtime))](double timeoutId) -> void { func.call(runtime, timeoutId); }, typedjsi::get<double>(runtime, args[1]) /*delay*/);
-
+    double returnValue = this->setInterval(args[0].getObject(runtime).asFunction(runtime), typedjsi::get<double>(runtime, args[1]) /*delay*/);
     return facebook::jsi::detail::toValue(runtime, returnValue);
   }));
 
@@ -162,7 +158,7 @@ struct StringBuffer : public jsi::Buffer {
 
   StringBuffer(std::string& str)
     : string_(str) {}
-
+    
   std::string string_;
 
   /*std::string javascript_ = ""
@@ -181,25 +177,25 @@ void ScriptHost::runScript(std::string& script) {
   }
 }
 
-double ScriptHost::setTimeout(std::function<void(double) noexcept>&& callback, double ms)
+double ScriptHost::setTimeout(jsi::Function&& jsiFuncCallback, double ms)
 {
   auto timeout = std::chrono::milliseconds(static_cast<long long>(ms));
-  auto timerId = eventLoop_.add(timeout, std::move(callback));
+  auto timerId = eventLoop_.add(timeout, std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
   return static_cast<double>(timerId);
 }
 
-double ScriptHost::setInterval(std::function<void(double) noexcept>&& callback, double delay)
+double ScriptHost::setInterval(jsi::Function&& jsiFuncCallback, double delay)
 {
   auto timeout = std::chrono::milliseconds(static_cast<long long>(delay));
-  auto timerId = eventLoop_.addPeriodic(timeout, std::move(callback));
+  auto timerId = eventLoop_.addPeriodic(timeout, std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
   return static_cast<double>(timerId);
 }
 
-double ScriptHost::setImmediate(std::function<void(double) noexcept>&& callback)
+double ScriptHost::setImmediate(jsi::Function&& jsiFuncCallback)
 {
   try
   {
-    auto timerId = eventLoop_.add(std::chrono::milliseconds(0), std::move(callback));
+    auto timerId = eventLoop_.add(std::chrono::milliseconds(0), std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
     return static_cast<double>(timerId);
   }
   catch (...)

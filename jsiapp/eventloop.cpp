@@ -1,5 +1,3 @@
-#pragma once
-
 #include "stdafx.h"
 
 #include "eventloop.h"
@@ -13,18 +11,39 @@ void EventLoop::loop()
     return;
   }
 
-  if (std::chrono::steady_clock::now() >= _timerEvents.begin()->next + _timerEvents.begin()->delay)
+  std::chrono::time_point<std::chrono::steady_clock> next = _timerEvents.begin()->next;
+  std::chrono::milliseconds delay = _timerEvents.begin()->delay;
+
+  if (std::chrono::steady_clock::now() >= next + delay)
   {
-    auto timerEvent = *_timerEvents.begin(); // TODO: can we std::move out of multiset? ::extract is C++17
+
+    _currentTimerId = _timerEvents.begin()->timerId;
+    std::unique_ptr<JSIFunctionProxy> jsiFuncProxy;
+    
+    facebook::jsi::Function jsiFunc = std::move(_timerEvents.begin()->jsiFunctionProxy->jsiFunc_);
+    facebook::jsi::Runtime& rt = _timerEvents.begin()->jsiFunctionProxy->jsiRuntime_;
+
+    bool isPeriodic = _timerEvents.begin()->periodic;
+
+    // timerEvent.handler(static_cast<double>(timerEvent.timerId));
+    // std::unique_ptr<JSIFunctionProxy> func = std::move(timerEvent.jsiFunctionProxy);
+    // timerEvent.jsiFunctionProxy->jsiFunc_.call(timerEvent.jsiFunctionProxy->jsiRuntime_, nullptr, 0);
+
+    // auto timerEvent = *_timerEvents.begin(); // TODO: can we std::move out of multiset? ::extract is C++17
     _timerEvents.erase(_timerEvents.begin());
 
-    _currentTimerId = timerEvent.timerId;
-    timerEvent.handler(static_cast<double>(timerEvent.timerId));
+    jsiFunc.call(rt, nullptr, 0);
 
-    if (timerEvent.periodic && _currentTimerId > 0)
+    // _currentTimerId = timerEvent.timerId;
+    // timerEvent.handler(static_cast<double>(timerEvent.timerId));
+    // std::unique_ptr<JSIFunctionProxy> func = std::move(timerEvent.jsiFunctionProxy);
+    // timerEvent.jsiFunctionProxy->jsiFunc_.call(timerEvent.jsiFunctionProxy->jsiRuntime_, nullptr, 0);
+
+    if (isPeriodic && _currentTimerId > 0)
     {
-      timerEvent.next += timerEvent.delay;
-      _timerEvents.insert(std::move(timerEvent));
+      // timerEvent.next += timerEvent.delay;
+      // _timerEvents.insert(std::move(timerEvent));
+      _timerEvents.insert(TimerEvent{ next + delay, delay, std::make_unique<JSIFunctionProxy>(rt, std::move(jsiFunc)) , _currentTimerId, isPeriodic });
     }
     else
     {
@@ -35,7 +54,6 @@ void EventLoop::loop()
   }
 }
 
-
 size_t GetUnusedTimerId() noexcept
 {
   // TODO: reuse timer ids?
@@ -44,14 +62,14 @@ size_t GetUnusedTimerId() noexcept
 }
 
 // Parameter could be size_t instead of double, but this makes it easy to pass the js number through
-size_t EventLoop::add(const std::chrono::milliseconds& delay, std::function<void(double) noexcept>&& handler)
+size_t EventLoop::add(const std::chrono::milliseconds& delay, std::unique_ptr<JSIFunctionProxy>&& handler)
 {
   size_t timerId = GetUnusedTimerId();
   _timerEvents.emplace(TimerEvent{ std::chrono::steady_clock::now(), delay, std::move(handler), timerId, false });
   return timerId;
 }
 
-size_t EventLoop::addPeriodic(const std::chrono::milliseconds& delay, std::function<void(double) noexcept>&& handler)
+size_t EventLoop::addPeriodic(const std::chrono::milliseconds& delay, std::unique_ptr<JSIFunctionProxy>&& handler)
 {
   size_t timerId = GetUnusedTimerId();
   _timerEvents.emplace(TimerEvent{ std::chrono::steady_clock::now(), delay, std::move(handler), timerId, true });

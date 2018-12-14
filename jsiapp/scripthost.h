@@ -15,8 +15,8 @@ public:
 
   void runScript(std::string& script);
 
-  double setTimeout(std::function<void(double) noexcept>&& callback, double ms);
-  double setImmediate(std::function<void(double) noexcept>&& callback);
-  double setInterval(std::function<void(double) noexcept>&& callback, double delay);
+  double setTimeout(facebook::jsi::Function&& jsiFuncCallback, double ms);
+  double setImmediate(facebook::jsi::Function&& jsiFuncCallback);
+  double setInterval(facebook::jsi::Function&& jsiFuncCallback, double delay);
   void clearTimeout(double timeoutId);
 };

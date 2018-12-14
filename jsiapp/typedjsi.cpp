@@ -1,3 +1,5 @@
+
+#include "stdafx.h"
 #include <typedjsi.h>
 #include <jsi.h>
 
