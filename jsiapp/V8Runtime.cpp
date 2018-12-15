@@ -147,6 +147,81 @@ namespace facebook {
         std::shared_ptr<jsi::HostObject> hostObject_;
       };
 
+      class AsyncHostFunctionProxy : public IHostProxy {
+      public:
+        
+        static void threadProc(jsi::AsyncHostFunctionType& func, v8::Promise::Resolver&& resolver) {
+          func();
+        }
+        
+        static void call(AsyncHostFunctionProxy& hostFunctionProxy, const v8::FunctionCallbackInfo<v8::Value>& callbackInfo) {
+          V8Runtime& runtime = const_cast<V8Runtime&>(hostFunctionProxy.runtime_);
+          v8::Isolate* isolate = callbackInfo.GetIsolate();
+
+          std::vector<jsi::Value> argsVector;
+          for (int i = 0; i < callbackInfo.Length(); i++)
+          {
+            argsVector.push_back(hostFunctionProxy.runtime_.createValue(callbackInfo[i]));
+          }
+
+          const jsi::Value& thisVal = runtime.createValue(callbackInfo.This());
+
+          std::future<jsi::Value> result;
+          try {
+            result = hostFunctionProxy.func_(runtime, thisVal, argsVector.data(), callbackInfo.Length());
+          }
+          catch (const jsi::JSError& error) {
+            callbackInfo.GetReturnValue().Set(v8::Undefined(isolate));
+
+            // Schedule to throw the exception back to JS.
+            isolate->ThrowException(runtime.valueRef(error.value()));
+            return;
+          }
+          catch (const std::exception& ex) {
+            callbackInfo.GetReturnValue().Set(v8::Undefined(isolate));
+
+            // Schedule to throw the exception back to JS.
+            v8::Local<v8::String> message = v8::String::NewFromUtf8(isolate, ex.what(), v8::NewStringType::kNormal).ToLocalChecked();
+            isolate->ThrowException(v8::Exception::Error(message));
+            return;
+          }
+          catch (...) {
+            callbackInfo.GetReturnValue().Set(v8::Undefined(isolate));
+
+            // Schedule to throw the exception back to JS.
+            v8::Local<v8::String> message = v8::String::NewFromOneByte(isolate, reinterpret_cast<const uint8_t*>("<Unknown exception in host function callback>"), v8::NewStringType::kNormal).ToLocalChecked();
+            isolate->ThrowException(v8::Exception::Error(message));
+            return;
+          }
+
+          callbackInfo.GetReturnValue().Set(runtime.valueRef(result.get()));
+        }
+
+      public:
+
+
+
+        static void AsyncHostFunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+        {
+          v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
+          v8::Local<v8::External> data = v8::Local<v8::External>::Cast(info.Data());
+          AsyncHostFunctionProxy* hostFunctionProxy = reinterpret_cast<AsyncHostFunctionProxy*> (data->Value());
+          hostFunctionProxy->call(*hostFunctionProxy, info);
+        }
+
+        AsyncHostFunctionProxy(facebook::v8runtime::V8Runtime& runtime, jsi::AsyncHostFunctionType func)
+          : func_(std::move(func)), runtime_(runtime) {};
+
+      private:
+        friend class HostObjectLifetimeTracker;
+        void destroy() override {
+          func_ = nullptr;
+        }
+
+        jsi::AsyncHostFunctionType func_;
+        facebook::v8runtime::V8Runtime& runtime_;
+      };
+
       class HostFunctionProxy : public IHostProxy {
       public:
         static void call(HostFunctionProxy& hostFunctionProxy, const v8::FunctionCallbackInfo<v8::Value>& callbackInfo) {
@@ -295,6 +370,12 @@ namespace facebook {
         const jsi::PropNameID& name,
         unsigned int paramCount,
         jsi::HostFunctionType func) override;
+
+      jsi::Function createFunctionFromAsyncHostFunction(
+        const jsi::PropNameID& name,
+        unsigned int paramCount,
+        jsi::AsyncHostFunctionType func) override;
+
       jsi::Value call(
         const jsi::Function&,
         const jsi::Value& jsThis,
@@ -829,10 +910,29 @@ namespace facebook {
     jsi::Function V8Runtime::createFunctionFromHostFunction(const jsi::PropNameID& name, unsigned int paramCount, jsi::HostFunctionType func) {
       _ISOLATE_CONTEXT_ENTER
 
-        HostFunctionProxy* hostFunctionProxy = new HostFunctionProxy(*this, func);
+      HostFunctionProxy* hostFunctionProxy = new HostFunctionProxy(*this, func);
 
       v8::Local<v8::Function> newFunction;
       if (!v8::Function::New(isolate_->GetCurrentContext(), HostFunctionProxy::HostFunctionCallback,
+        v8::Local<v8::External>::New(GetIsolate(), v8::External::New(GetIsolate(), hostFunctionProxy))).ToLocal(&newFunction)) {
+        throw jsi::JSError(*this, "Creation of HostFunction failed.");
+      }
+
+      AddHostObjectLifetimeTracker(std::make_shared<HostObjectLifetimeTracker>(*this, newFunction, hostFunctionProxy));
+
+      return createObject(newFunction).getFunction(*this);
+    }
+
+
+    jsi::Function V8Runtime::createFunctionFromAsyncHostFunction(
+      const jsi::PropNameID& name,
+      unsigned int paramCount,
+      jsi::AsyncHostFunctionType func) {
+      
+      AsyncHostFunctionProxy* hostFunctionProxy = new AsyncHostFunctionProxy(*this, func);
+
+      v8::Local<v8::Function> newFunction;
+      if (!v8::Function::New(isolate_->GetCurrentContext(), AsyncHostFunctionProxy::AsyncHostFunctionCallback,
         v8::Local<v8::External>::New(GetIsolate(), v8::External::New(GetIsolate(), hostFunctionProxy))).ToLocal(&newFunction)) {
         throw jsi::JSError(*this, "Creation of HostFunction failed.");
       }

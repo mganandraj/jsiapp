@@ -214,6 +214,15 @@ inline Function Function::createFromHostFunction(
       name, paramCount, std::move(func));
 }
 
+inline Function Function::createFromAsyncHostFunction(
+  Runtime& runtime,
+  const jsi::PropNameID& name,
+  unsigned int paramCount,
+  jsi::AsyncHostFunctionType func) {
+  return runtime.createFunctionFromAsyncHostFunction(
+    name, paramCount, std::move(func));
+}
+
 inline Value Function::call(Runtime& runtime, const Value* args, size_t count)
     const {
   return runtime.call(*this, Value::undefined(), args, count);

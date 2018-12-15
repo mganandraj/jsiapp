@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <future> 
 
 #ifndef JSI_EXPORT
 #define JSI_EXPORT __attribute__((visibility("default")))
@@ -76,6 +77,9 @@ class JSError;
 /// or set to the global object.
 using HostFunctionType = std::function<
     Value(Runtime& rt, const Value& thisVal, const Value* args, size_t count)>;
+
+using AsyncHostFunctionType = std::function<
+  std::future<Value>(Runtime& rt, const Value& thisVal, const Value* args, size_t count)>;
 
 /// An object which implements this interface can be registered as an
 /// Object with the JS runtime.
@@ -240,6 +244,12 @@ class Runtime {
       const PropNameID& name,
       unsigned int paramCount,
       HostFunctionType func) = 0;
+
+  virtual Function createFunctionFromAsyncHostFunction(
+    const PropNameID& name,
+    unsigned int paramCount,
+    AsyncHostFunctionType func) = 0;
+
   virtual Value call(
       const Function&,
       const Value& jsThis,
@@ -732,6 +742,12 @@ class Function : public Object {
       const jsi::PropNameID& name,
       unsigned int paramCount,
       jsi::HostFunctionType func);
+
+  static Function createFromAsyncHostFunction(
+    Runtime& runtime,
+    const jsi::PropNameID& name,
+    unsigned int paramCount,
+    jsi::AsyncHostFunctionType func);
 
   /// Calls the function with \c count \c args.  The \c this value of
   /// the JS function will be undefined.

@@ -100,6 +100,21 @@ ScriptHost::ScriptHost()
 
   runtime_->global().setProperty(
     *runtime_,
+    "getTimeAsync",
+    jsi::Function::createFromAsyncHostFunction(
+      *runtime_,
+      jsi::PropNameID::forAscii(*runtime_, "getTimeAsync"),
+      1,
+      [](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) { 
+          std::packaged_task<jsi::Value()> task([]() {
+            return jsi::Value::undefined();
+          });
+
+          return task.get_future();
+        }));
+
+  runtime_->global().setProperty(
+    *runtime_,
     "myobject",
     jsi::Object::createFromHostObject(*runtime_, MyHostObject::getHostObject())
   );
