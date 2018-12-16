@@ -151,7 +151,7 @@ namespace facebook {
       public:
         
         static void threadProc(jsi::AsyncHostFunctionType& func, v8::Promise::Resolver&& resolver) {
-          func();
+          //func();
         }
         
         static void call(AsyncHostFunctionProxy& hostFunctionProxy, const v8::FunctionCallbackInfo<v8::Value>& callbackInfo) {
@@ -464,7 +464,7 @@ namespace facebook {
       const char* argv[] = { "", "--expose_gc" };
 
       v8::V8::SetFlagsFromCommandLine(&argc, const_cast<char **>(argv), false);
-      v8::V8::InitializeExternalStartupData("E:\\work\\jsiapp2\\x64\\Debug\\");
+      v8::V8::InitializeExternalStartupData("d:\\work\\jsiapp\\x64\\Debug\\");
 
       v8::Platform *platform = v8::platform::CreateDefaultPlatform();
       v8::V8::InitializePlatform(platform);
@@ -928,7 +928,8 @@ namespace facebook {
       const jsi::PropNameID& name,
       unsigned int paramCount,
       jsi::AsyncHostFunctionType func) {
-      
+	  _ISOLATE_CONTEXT_ENTER
+
       AsyncHostFunctionProxy* hostFunctionProxy = new AsyncHostFunctionProxy(*this, func);
 
       v8::Local<v8::Function> newFunction;

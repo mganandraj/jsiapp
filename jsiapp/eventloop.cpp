@@ -4,46 +4,61 @@
 
 #include <algorithm>
 
-void EventLoop::loop()
+#include <chrono>
+
+#include <iostream>
+
+EventLoop::EventLoop() {
+
+}
+
+void EventLoop::threadProc() {
+	while (true) {
+		iteration();
+	}
+}
+
+void EventLoop::loop() {
+	t_ = std::move(std::thread(&EventLoop::threadProc, this));
+}
+
+void EventLoop::iteration()
 {
-  if (_timerEvents.size() == 0)
+	std::this_thread::sleep_for(std::chrono::seconds(2));
+	std::cout << "iter\n";
+  
+	
+	while (!_taskQueue.empty()) {
+		std::cout << "task pop\n";
+		auto func = _taskQueue.front();
+		_taskQueue.pop();
+		func();
+  }
+	
+	if (_timerEvents.size() == 0)
   {
     return;
   }
 
-  std::chrono::time_point<std::chrono::steady_clock> next = _timerEvents.begin()->next;
-  std::chrono::milliseconds delay = _timerEvents.begin()->delay;
+  std::chrono::time_point<std::chrono::steady_clock> next = _timerEvents.begin()->next_;
+  std::chrono::milliseconds delay = _timerEvents.begin()->delay_;
 
   if (std::chrono::steady_clock::now() >= next + delay)
   {
-
-    _currentTimerId = _timerEvents.begin()->timerId;
-    std::unique_ptr<JSIFunctionProxy> jsiFuncProxy;
-    
-    facebook::jsi::Function jsiFunc = std::move(_timerEvents.begin()->jsiFunctionProxy->jsiFunc_);
-    facebook::jsi::Runtime& rt = _timerEvents.begin()->jsiFunctionProxy->jsiRuntime_;
-
-    bool isPeriodic = _timerEvents.begin()->periodic;
-
-    // timerEvent.handler(static_cast<double>(timerEvent.timerId));
-    // std::unique_ptr<JSIFunctionProxy> func = std::move(timerEvent.jsiFunctionProxy);
-    // timerEvent.jsiFunctionProxy->jsiFunc_.call(timerEvent.jsiFunctionProxy->jsiRuntime_, nullptr, 0);
-
-    // auto timerEvent = *_timerEvents.begin(); // TODO: can we std::move out of multiset? ::extract is C++17
+	bool isPeriodic = _timerEvents.begin()->periodic_;
+	_currentTimerId = _timerEvents.begin()->timerId_;
+	
+	std::unique_ptr<JSIFunctionProxy> jsiFuncProxy;
+	facebook::jsi::Function jsiFunc = std::move(_timerEvents.begin()->jsiFunctionProxy_->jsiFunc_);
+	facebook::jsi::Runtime& rt = _timerEvents.begin()->jsiFunctionProxy_->jsiRuntime_;
+	
     _timerEvents.erase(_timerEvents.begin());
 
     jsiFunc.call(rt, nullptr, 0);
 
-    // _currentTimerId = timerEvent.timerId;
-    // timerEvent.handler(static_cast<double>(timerEvent.timerId));
-    // std::unique_ptr<JSIFunctionProxy> func = std::move(timerEvent.jsiFunctionProxy);
-    // timerEvent.jsiFunctionProxy->jsiFunc_.call(timerEvent.jsiFunctionProxy->jsiRuntime_, nullptr, 0);
-
     if (isPeriodic && _currentTimerId > 0)
     {
-      // timerEvent.next += timerEvent.delay;
-      // _timerEvents.insert(std::move(timerEvent));
-      _timerEvents.insert(TimerEvent{ next + delay, delay, std::make_unique<JSIFunctionProxy>(rt, std::move(jsiFunc)) , _currentTimerId, isPeriodic });
+      _timerEvents.insert(TimerEvent{ next + delay, delay, std::make_unique<JSIFunctionProxy>(rt, std::move(jsiFunc)), _currentTimerId, isPeriodic });
     }
     else
     {
@@ -59,6 +74,11 @@ size_t GetUnusedTimerId() noexcept
   // TODO: reuse timer ids?
   static size_t timerId{ 1 };
   return timerId++;
+}
+
+void EventLoop::add(std::unique_ptr<AsyncEvent> asyncEvent)
+{
+	_asyncEvents.emplace(std::move(asyncEvent));
 }
 
 // Parameter could be size_t instead of double, but this makes it easy to pass the js number through
@@ -85,7 +105,7 @@ void EventLoop::cancel(size_t timerId)
     return;
   }
 
-  auto it = std::find_if(_timerEvents.begin(), _timerEvents.end(), [&](const TimerEvent& te) noexcept { return te.timerId == timerId; });
+  auto it = std::find_if(_timerEvents.begin(), _timerEvents.end(), [&](const TimerEvent& te) noexcept { return te.timerId_ == timerId; });
   if (it != _timerEvents.end())
   {
     _timerEvents.erase(it);

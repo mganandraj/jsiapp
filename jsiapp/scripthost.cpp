@@ -8,6 +8,8 @@
 
 #include "typedjsi.h"
 
+#include <iostream>
+
 using namespace facebook;
 
 class JSILogger {
@@ -16,18 +18,18 @@ public:
     std::shared_ptr<JSILogger> jsiLogger(new JSILogger());
     auto func = [jsiLogger](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) {
       jsiLogger->ping();
-      OutputDebugStringA(args[0].asString(runtime).utf8(runtime).c_str() );
+      std::cout<<args[0].asString(runtime).utf8(runtime).c_str() <<std::endl;
       return jsi::Value::undefined();
     };
     return std::move(func);
   }
 
   ~JSILogger() {
-    OutputDebugStringA("~JSILogger");
+	  std::cout << "~JSILogger\n";
   }
 
   void ping() {
-    OutputDebugStringA("ping ping ");
+	  std::cout << "ping ping\n";
   }
 };
 
@@ -39,7 +41,7 @@ public:
       : hostObject_(hostObject) {}
 
     ~HostObjectImpl() {
-      OutputDebugStringA("~HostObjectImpl");
+		std::cout << "~HostObjectImpl\n";
     }
 
     jsi::Value get(jsi::Runtime& rt, const jsi::PropNameID& name) override {
@@ -78,7 +80,7 @@ public:
   }
 
   ~MyHostObject() {
-    OutputDebugStringA("~MyHostObject");
+	  std::cout << "~MyHostObject\n";
   }
 
   std::string name_{ "MyHostObject" };
@@ -86,80 +88,82 @@ public:
 };
 
 
-ScriptHost::ScriptHost() 
-  :runtime_(facebook::v8runtime::makeV8Runtime()) {
+ScriptHost::ScriptHost() {
+	
+	eventLoop_._taskQueue.push([this]() {runtime_ = facebook::v8runtime::makeV8Runtime(); });
+	
   
-  runtime_->global().setProperty(
-    *runtime_,
-    "mylogger",
-    jsi::Function::createFromHostFunction(
-      *runtime_,
-      jsi::PropNameID::forAscii(*runtime_, "mylogger"),
-      1,
-      JSILogger::getLogger()));
+	eventLoop_._taskQueue.push([this]() {
+		runtime_->global().setProperty(
+			*runtime_,
+			"mylogger",
+			jsi::Function::createFromHostFunction(
+				*runtime_,
+				jsi::PropNameID::forAscii(*runtime_, "mylogger"),
+				1,
+				JSILogger::getLogger()));
 
-  runtime_->global().setProperty(
-    *runtime_,
-    "getTimeAsync",
-    jsi::Function::createFromAsyncHostFunction(
-      *runtime_,
-      jsi::PropNameID::forAscii(*runtime_, "getTimeAsync"),
-      1,
-      [](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) { 
-          std::packaged_task<jsi::Value()> task([]() {
-            return jsi::Value::undefined();
-          });
+		runtime_->global().setProperty(
+			*runtime_,
+			"getTimeAsync",
+			jsi::Function::createFromAsyncHostFunction(
+				*runtime_,
+				jsi::PropNameID::forAscii(*runtime_, "getTimeAsync"),
+				1,
+				[](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) {
+			std::unique_ptr<AsyncEvent> event = std::make_unique<AsyncEvent>();
+			event->func_ = []() {return jsi::Value::undefined(); };
+			return event->promise_.get_future();
 
-          return task.get_future();
-        }));
+		}));
 
-  runtime_->global().setProperty(
-    *runtime_,
-    "myobject",
-    jsi::Object::createFromHostObject(*runtime_, MyHostObject::getHostObject())
-  );
+		runtime_->global().setProperty(
+			*runtime_,
+			"myobject",
+			jsi::Object::createFromHostObject(*runtime_, MyHostObject::getHostObject())
+		);
 
-  runtime_->global().setProperty(*runtime_, "setTimeout",
-    facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "settimeout"), 2, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
-    if (count != 2) {
-      throw std::invalid_argument("Function setTimeout expects 2 arguments");
-    }
+		runtime_->global().setProperty(*runtime_, "setTimeout",
+			facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "settimeout"), 2, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
+			if (count != 2) {
+				throw std::invalid_argument("Function setTimeout expects 2 arguments");
+			}
 
-    double returnvalue = this->setTimeout(args[0].getObject(runtime).asFunction(runtime), typedjsi::get<double>(runtime, args[1]) /*ms*/);
-    return facebook::jsi::detail::toValue(runtime, returnvalue);
-  }));
+			double returnvalue = this->setTimeout(args[0].getObject(runtime).asFunction(runtime), typedjsi::get<double>(runtime, args[1]) /*ms*/);
+			return facebook::jsi::detail::toValue(runtime, returnvalue);
+		}));
 
-  runtime_->global().setProperty(*runtime_, "setImmediate",
-    facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "setImmediate"), 1, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
-    if (count != 1) {
-      throw std::invalid_argument("Function setImmediate expects 1 arguments");
-    }
+		runtime_->global().setProperty(*runtime_, "setImmediate",
+			facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "setImmediate"), 1, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
+			if (count != 1) {
+				throw std::invalid_argument("Function setImmediate expects 1 arguments");
+			}
 
-    double returnValue = this->setImmediate(args[0].getObject(runtime).asFunction(runtime));
-    return facebook::jsi::detail::toValue(runtime, returnValue);
-  }));
+			double returnValue = this->setImmediate(args[0].getObject(runtime).asFunction(runtime));
+			return facebook::jsi::detail::toValue(runtime, returnValue);
+		}));
 
-  runtime_->global().setProperty(*runtime_, "setInterval",
-    facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "setInterval"), 2, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
-    if (count != 2) {
-      throw std::invalid_argument("Function setInterval expects 2 arguments");
-    }
+		runtime_->global().setProperty(*runtime_, "setInterval",
+			facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "setInterval"), 2, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
+			if (count != 2) {
+				throw std::invalid_argument("Function setInterval expects 2 arguments");
+			}
 
-    double returnValue = this->setInterval(args[0].getObject(runtime).asFunction(runtime), typedjsi::get<double>(runtime, args[1]) /*delay*/);
-    return facebook::jsi::detail::toValue(runtime, returnValue);
-  }));
+			double returnValue = this->setInterval(args[0].getObject(runtime).asFunction(runtime), typedjsi::get<double>(runtime, args[1]) /*delay*/);
+			return facebook::jsi::detail::toValue(runtime, returnValue);
+		}));
 
-  runtime_->global().setProperty(*runtime_, "clearTimeout",
-    facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "clearTimeout"), 1, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
-    if (count != 1) {
-      throw std::invalid_argument("Function clearTimeout expects 1 arguments");
-    }
+		runtime_->global().setProperty(*runtime_, "clearTimeout",
+			facebook::jsi::Function::createFromHostFunction(*runtime_, facebook::jsi::PropNameID::forAscii(*runtime_, "clearTimeout"), 1, [this](facebook::jsi::Runtime& runtime, const facebook::jsi::Value&, const facebook::jsi::Value* args, size_t count) {
+			if (count != 1) {
+				throw std::invalid_argument("Function clearTimeout expects 1 arguments");
+			}
 
-    this->clearTimeout(typedjsi::get<double>(runtime, args[0]) /*timeoutId*/);
+			this->clearTimeout(typedjsi::get<double>(runtime, args[0]) /*timeoutId*/);
 
-    return facebook::jsi::Value::undefined();
-  }));
-
+			return facebook::jsi::Value::undefined();
+		}));
+	});
 }
 
 struct StringBuffer : public jsi::Buffer {
@@ -171,10 +175,10 @@ struct StringBuffer : public jsi::Buffer {
     return reinterpret_cast<const uint8_t*>(string_.c_str());
   }
 
-  StringBuffer(std::string& str)
+  StringBuffer(const std::string& str)
     : string_(str) {}
     
-  std::string string_;
+  const std::string string_;
 
   /*std::string javascript_ = ""
     "print('hello v8...');"
@@ -183,13 +187,15 @@ struct StringBuffer : public jsi::Buffer {
 };
 
 void ScriptHost::runScript(std::string& script) {
-  try{
-    std::string sourceUrl("MyJS");
-    runtime_->evaluateJavaScript(std::make_unique<StringBuffer>(script), sourceUrl);
-  }
-  catch (std::exception& exc) {
-    OutputDebugStringA(exc.what());
-  }
+	eventLoop_._taskQueue.push([this, script]() {
+		try {
+			std::string sourceUrl("MyJS");
+			runtime_->evaluateJavaScript(std::make_unique<StringBuffer>(script), sourceUrl);
+		}
+		catch (std::exception& exc) {
+			std::cout << exc.what();
+		}
+	});
 }
 
 double ScriptHost::setTimeout(jsi::Function&& jsiFuncCallback, double ms)
