@@ -71,10 +71,11 @@ struct EventLoop
   void cancel(size_t timerId);
 
   EventLoop();
-
-
+    
   // Sorted queue that has the next timeout first
   std::multiset<TimerEvent> _timerEvents;
+
+  std::function<void()> _initFunc;
 
   std::queue<std::function<void()>> _taskQueue;
 
@@ -83,10 +84,4 @@ struct EventLoop
   // Holds the currently running timerId; goes to 0 if timer was cleared in its own handler
   size_t _currentTimerId;
 
-
-
-    int n;
-
-	
-  
 };

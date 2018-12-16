@@ -155,6 +155,19 @@ inline Function Object::getFunction(Runtime& runtime) && {
   return Function(value);
 }
 
+inline Promise Object::getPromise(Runtime& runtime) const& {
+	assert(runtime.isPromise(*this));
+	return Promise(runtime.cloneObject(ptr_));
+}
+
+inline Promise Object::getPromise(Runtime& runtime) && {
+	assert(runtime.isPromise(*this));
+	(void)runtime; // when assert is disabled we need to mark this as used
+	Runtime::PointerValue* value = ptr_;
+	ptr_ = nullptr;
+	return Promise(value);
+}
+
 template <typename T>
 inline bool Object::isHostObject(Runtime& runtime) const {
   return runtime.isHostObject(*this) &&
@@ -269,6 +282,14 @@ inline Value Function::callWithThis(
   return callWithThis(
       runtime, jsThis, {detail::toValue(runtime, std::forward<Args>(args))...});
 }
+
+inline Promise Promise::Catch(Runtime& runtime, jsi::Function& func) {
+	return runtime.Catch(runtime, *this, func);
+};
+
+inline Promise Promise::Then(Runtime& runtime, jsi::Function& func) {
+	return runtime.Catch(runtime, *this, func);
+};
 
 template <typename... Args>
 inline Array Array::createWithElements(Runtime& runtime, Args&&... args) {

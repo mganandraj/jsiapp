@@ -175,6 +175,7 @@ class Runtime {
   friend class Array;
   friend class ArrayBuffer;
   friend class Function;
+  friend class Promise;
   friend class Value;
   friend class Scope;
   friend class JSError;
@@ -226,6 +227,7 @@ class Runtime {
   virtual bool isArray(const Object&) const = 0;
   virtual bool isArrayBuffer(const Object&) const = 0;
   virtual bool isFunction(const Object&) const = 0;
+  virtual bool isPromise(const Object&) const = 0;
   virtual bool isHostObject(const jsi::Object&) const = 0;
   virtual bool isHostFunction(const jsi::Function&) const = 0;
   virtual Array getPropertyNames(const Object&) = 0;
@@ -257,6 +259,9 @@ class Runtime {
       size_t count) = 0;
   virtual Value
   callAsConstructor(const Function&, const Value* args, size_t count) = 0;
+
+  virtual Promise Catch(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) = 0;
+  virtual Promise Then(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) = 0;
 
   // Private data for managing scopes.
   struct ScopeState;
@@ -523,6 +528,12 @@ class Object : public Pointer {
     return runtime.isFunction(*this);
   }
 
+  /// \return true iff the Object is a promise.  If so, then \c
+  /// getPromise will succeed.
+  bool isPromise(Runtime& runtime) const {
+	  return runtime.isPromise(*this);
+  }
+
   /// \return true iff the Object was initialized with \c createFromHostObject
   /// and the HostObject passed is of type \c T. If returns \c true then
   /// \c getHostObject<T> will succeed.
@@ -562,6 +573,14 @@ class Object : public Pointer {
   /// \return a Function instance which refers to the same underlying
   /// object.  If \c isFunction() would return false, this will assert.
   Function getFunction(Runtime& runtime) &&;
+
+  /// \return a Promise instance which refers to the same underlying
+  /// object.  If \c isPromise() would return false, this will assert.
+  Promise getPromise(Runtime& runtime) const&;
+
+  /// \return a Promise instance which refers to the same underlying
+  /// object.  If \c isPromise() would return false, this will assert.
+  Promise getPromise(Runtime& runtime) && ;
 
   /// \return a Function instance which refers to the same underlying
   /// object.  If \c isFunction() would return false, this will throw
@@ -723,6 +742,21 @@ class ArrayBuffer : public Object {
   friend class Value;
 
   ArrayBuffer(Runtime::PointerValue* value) : Object(value) {}
+};
+
+class Promise : public Object {
+public:
+	Promise(Promise&&) = default;
+	Promise& operator=(Promise&&) = default;
+
+	Promise Catch(Runtime& runtime, jsi::Function& func);
+	Promise Then(Runtime& runtime, jsi::Function& func);
+
+private:
+	friend class Object;
+	friend class Value;
+
+	Promise(Runtime::PointerValue* value) : Object(value) {}
 };
 
 /// Represents a JS Object which is guaranteed to be Callable.

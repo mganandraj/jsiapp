@@ -1,19 +1,22 @@
 #include "stdafx.h"
 #include "scripthost.h"
-
 #include <iostream>
 
-int APIENTRY winHostSetup(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR    lpCmdLine, int       nCmdShow, EventLoop&);
+using namespace facebook;
 
-
-
-
-//int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
 int main()
 {
-	
+
 	ScriptHost scriptHost;
-	std::string script("function getData() { print('abcd');} setImmediate(getData);");
+	std::string script("function getData() { "
+		"print('1'); return new Promise(function(resolve, reject) {"
+			"print('2'); "
+		    "var func = function(){ print('3'); resolve('foo'); };"
+			"setImmediate(func); "
+		"});"
+	"}"
+	"function later() {print('later!!!')};"
+	"function catchh() {print('catchhh!!!')};");
 
   //std::string script("function getData() { return 100;}",
 	//"//setImmediate(function(){ mylogger('Hello'); });"
@@ -26,7 +29,17 @@ int main()
 
   scriptHost.eventLoop_.loop();
 
-  scriptHost.eventLoop_.t_.join();
+  scriptHost.eventLoop_._taskQueue.push([&scriptHost]() {
+	  facebook::jsi::Function func = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "getData");
+	  jsi::Value ret = func.call(*scriptHost.runtime_, nullptr, 0);
+	  jsi::Promise promise = ret.getObject(*scriptHost.runtime_).getPromise(*scriptHost.runtime_);
+	 
+	  facebook::jsi::Function laterFunc = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "later");
+	  promise.Then(*scriptHost.runtime_, laterFunc);
 
-  // winHostSetup(hInstance, hPrevInstance, lpCmdLine, nCmdShow, scriptHost.eventLoop_);
+	  facebook::jsi::Function catchFunc = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "catchh");
+	  promise.Catch(*scriptHost.runtime_, catchFunc);
+  });
+
+  scriptHost.eventLoop_.t_.join();
 }

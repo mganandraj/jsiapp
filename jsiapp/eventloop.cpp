@@ -13,6 +13,7 @@ EventLoop::EventLoop() {
 }
 
 void EventLoop::threadProc() {
+	
 	while (true) {
 		iteration();
 	}

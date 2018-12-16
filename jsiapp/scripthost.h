@@ -9,6 +9,7 @@ class ScriptHost {
 public:
 
   std::unique_ptr<facebook::jsi::Runtime> runtime_;
+
   EventLoop eventLoop_;
 
   ScriptHost();

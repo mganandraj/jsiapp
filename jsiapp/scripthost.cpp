@@ -90,9 +90,10 @@ public:
 
 ScriptHost::ScriptHost() {
 	
-	eventLoop_._taskQueue.push([this]() {runtime_ = facebook::v8runtime::makeV8Runtime(); });
+	eventLoop_._taskQueue.push([this]() {
+		runtime_ = facebook::v8runtime::makeV8Runtime();
+	});
 	
-  
 	eventLoop_._taskQueue.push([this]() {
 		runtime_->global().setProperty(
 			*runtime_,

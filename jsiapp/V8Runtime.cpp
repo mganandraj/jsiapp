@@ -351,6 +351,7 @@ namespace facebook {
       bool isArray(const jsi::Object&) const override;
       bool isArrayBuffer(const jsi::Object&) const override;
       bool isFunction(const jsi::Object&) const override;
+	  bool isPromise(const jsi::Object&) const override;
       bool isHostObject(const jsi::Object&) const override;
       bool isHostFunction(const jsi::Function&) const override;
       jsi::Array getPropertyNames(const jsi::Object&) override;
@@ -385,6 +386,9 @@ namespace facebook {
         const jsi::Function&,
         const jsi::Value* args,
         size_t count) override;
+
+	  jsi::Promise Catch(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) override;
+	  jsi::Promise Then(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) override;
 
       bool strictEquals(const jsi::String& a, const jsi::String& b) const override;
       bool strictEquals(const jsi::Object& a, const jsi::Object& b) const override;
@@ -864,6 +868,11 @@ namespace facebook {
         return objectRef(obj)->IsFunction();
     }
 
+	bool V8Runtime::isPromise(const jsi::Object& obj) const {
+		_ISOLATE_CONTEXT_ENTER
+			return objectRef(obj)->IsPromise();
+	}
+
     bool V8Runtime::isHostObject(const jsi::Object& obj) const {
       _ISOLATE_CONTEXT_ENTER
         std::abort();
@@ -989,6 +998,33 @@ namespace facebook {
       return createValue(newObject);
     }
 
+	jsi::Promise V8Runtime::Catch(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) {
+		_ISOLATE_CONTEXT_ENTER
+		v8::Local<v8::Promise> v8promise = v8::Local<v8::Promise>::Cast(objectRef(promise));
+		v8::Local<v8::Function> v8Function = v8::Local<v8::Function>::Cast(objectRef(func));
+		
+		v8::Local<v8::Promise> newPromise;
+		if(!v8promise->Catch(isolate->GetCurrentContext(), v8Function).ToLocal(&newPromise)) {
+			throw jsi::JSError(*this, "Promise::Catch failed.");
+		}
+
+		return createObject(newPromise).getPromise(*this);
+	}
+
+	jsi::Promise V8Runtime::Then(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) {
+		_ISOLATE_CONTEXT_ENTER
+		v8::Local<v8::Promise> v8promise = v8::Local<v8::Promise>::Cast(objectRef(promise));
+		v8::Local<v8::Function> v8Function = v8::Local<v8::Function>::Cast(objectRef(func));
+		v8promise->Then(isolate->GetCurrentContext(), v8Function);
+
+		v8::Local<v8::Promise> newPromise;
+		if (!v8promise->Catch(isolate->GetCurrentContext(), v8Function).ToLocal(&newPromise)) {
+			throw jsi::JSError(*this, "Promise::Then failed.");
+		}
+
+		return createObject(newPromise).getPromise(*this);
+	}
+
     bool V8Runtime::strictEquals(const jsi::String& a, const jsi::String& b) const {
       _ISOLATE_CONTEXT_ENTER
         return stringRef(a)->StrictEquals(stringRef(b));
@@ -1048,6 +1084,9 @@ namespace facebook {
           return createString(v8::Local<v8::String>::Cast(value));
         }
         else if (value->IsObject()) {
+
+			bool isPromise = value->IsPromise();
+
           return createObject(v8::Local<v8::Object>::Cast(value));
         }
         else {
