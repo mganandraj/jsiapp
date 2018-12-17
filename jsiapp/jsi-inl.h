@@ -288,7 +288,7 @@ inline Promise Promise::Catch(Runtime& runtime, jsi::Function& func) {
 };
 
 inline Promise Promise::Then(Runtime& runtime, jsi::Function& func) {
-	return runtime.Catch(runtime, *this, func);
+	return runtime.Then(runtime, *this, func);
 };
 
 template <typename... Args>

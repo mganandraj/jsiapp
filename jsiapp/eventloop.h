@@ -79,6 +79,8 @@ struct EventLoop
 
   std::queue<std::function<void()>> _taskQueue;
 
+  std::queue<std::function<void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count, jsi::PromiseResolver&&)>> _asyncCallQueue;
+
   std::multiset<std::unique_ptr<AsyncEvent>> _asyncEvents;
 
   // Holds the currently running timerId; goes to 0 if timer was cleared in its own handler

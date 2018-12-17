@@ -63,6 +63,7 @@ class Instrumentation;
 class Scope;
 class JSIException;
 class JSError;
+class PromiseResolver;
 
 /// A function which has this type can be registered as a function
 /// callable from JavaScript using Function::createFromHostFunction().
@@ -79,7 +80,7 @@ using HostFunctionType = std::function<
     Value(Runtime& rt, const Value& thisVal, const Value* args, size_t count)>;
 
 using AsyncHostFunctionType = std::function<
-  std::future<Value>(Runtime& rt, const Value& thisVal, const Value* args, size_t count)>;
+  void(Runtime& rt, const Value& thisVal, const Value* args, size_t count, PromiseResolver&&)>;
 
 /// An object which implements this interface can be registered as an
 /// Object with the JS runtime.
@@ -176,6 +177,7 @@ class Runtime {
   friend class ArrayBuffer;
   friend class Function;
   friend class Promise;
+  friend class PromiseResolver;
   friend class Value;
   friend class Scope;
   friend class JSError;
@@ -758,6 +760,22 @@ private:
 
 	Promise(Runtime::PointerValue* value) : Object(value) {}
 };
+
+class PromiseResolver : public Object {
+public:
+	PromiseResolver(PromiseResolver&&) = default;
+	PromiseResolver& operator=(PromiseResolver&&) = default;
+
+	void Resolve(Runtime& runtime, jsi::Value& value);
+	void Reject(Runtime& runtime, jsi::Value& value);
+
+private:
+	friend class Object;
+	friend class Value;
+
+	PromiseResolver(Runtime::PointerValue* value) : Object(value) {}
+};
+
 
 /// Represents a JS Object which is guaranteed to be Callable.
 class Function : public Object {

@@ -5,12 +5,27 @@
 
 #include "jsi.h"
 
+#include <folly/dynamic.h>
+
 class ScriptHost {
 public:
 
+class Promise {
+
+	Promise(Promise&& other) = default;
+	Promise& operator=(Promise&& other) = default;
+
+private:
+	jsi::PromiseResolver jsiPromiseResolver;
+};
+
+using HostAsyncFunctionType = std::function<
+	folly::dynamic(folly::dynamic& args)>;
+
   std::unique_ptr<facebook::jsi::Runtime> runtime_;
 
-  EventLoop eventLoop_;
+  EventLoop jsiEventLoop_;
+  EventLoop bgEventLoop_;
 
   ScriptHost();
 

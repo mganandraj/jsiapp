@@ -12,11 +12,13 @@ int main()
 		"print('1'); return new Promise(function(resolve, reject) {"
 			"print('2'); "
 		    "var func = function(){ print('3'); resolve('foo'); };"
-			"setImmediate(func); "
+			"/*setImmediate(func);*/ "
+		    "func();"
 		"});"
 	"}"
-	"function later() {print('later!!!')};"
-	"function catchh() {print('catchhh!!!')};");
+	"function later(arg) {print(arg)};"
+	"function catchh(arg) {print(arg)};"
+	"/*getData().then(later);*/");
 
   //std::string script("function getData() { return 100;}",
 	//"//setImmediate(function(){ mylogger('Hello'); });"
