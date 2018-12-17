@@ -63,6 +63,7 @@ class Instrumentation;
 class Scope;
 class JSIException;
 class JSError;
+class Promise;
 class PromiseResolver;
 
 /// A function which has this type can be registered as a function
@@ -249,11 +250,6 @@ class Runtime {
       unsigned int paramCount,
       HostFunctionType func) = 0;
 
-  virtual Function createFunctionFromAsyncHostFunction(
-    const PropNameID& name,
-    unsigned int paramCount,
-    AsyncHostFunctionType func) = 0;
-
   virtual Value call(
       const Function&,
       const Value& jsThis,
@@ -262,8 +258,12 @@ class Runtime {
   virtual Value
   callAsConstructor(const Function&, const Value* args, size_t count) = 0;
 
-  virtual Promise Catch(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) = 0;
-  virtual Promise Then(Runtime& runtime, jsi::Promise& promise, jsi::Function& func) = 0;
+  virtual Promise Catch(Promise& promise, Function& func) = 0;
+  virtual Promise Then(Promise& promise, jsi::Function& func) = 0;
+  virtual Value Result(Promise& promise) = 0;
+  virtual bool isPending(Promise& promise) = 0;
+  virtual bool isFulfilled(Promise& promise) = 0;
+  virtual bool isRejected(Promise& promise) = 0;
 
   // Private data for managing scopes.
   struct ScopeState;
@@ -754,6 +754,11 @@ public:
 	Promise Catch(Runtime& runtime, jsi::Function& func);
 	Promise Then(Runtime& runtime, jsi::Function& func);
 
+  Value Result(Runtime& runtime);
+  bool isPending(Runtime& runtime);
+  bool isFulfilled(Runtime& runtime);
+  bool isRejected(Runtime& runtime);
+
 private:
 	friend class Object;
 	friend class Value;
@@ -768,6 +773,10 @@ public:
 
 	void Resolve(Runtime& runtime, jsi::Value& value);
 	void Reject(Runtime& runtime, jsi::Value& value);
+
+  Promise getPromise(Runtime& runtime);
+
+  static PromiseResolver create(Runtime& runtime);
 
 private:
 	friend class Object;
@@ -794,12 +803,6 @@ class Function : public Object {
       const jsi::PropNameID& name,
       unsigned int paramCount,
       jsi::HostFunctionType func);
-
-  static Function createFromAsyncHostFunction(
-    Runtime& runtime,
-    const jsi::PropNameID& name,
-    unsigned int paramCount,
-    jsi::AsyncHostFunctionType func);
 
   /// Calls the function with \c count \c args.  The \c this value of
   /// the JS function will be undefined.

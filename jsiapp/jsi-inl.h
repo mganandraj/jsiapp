@@ -227,15 +227,6 @@ inline Function Function::createFromHostFunction(
       name, paramCount, std::move(func));
 }
 
-inline Function Function::createFromAsyncHostFunction(
-  Runtime& runtime,
-  const jsi::PropNameID& name,
-  unsigned int paramCount,
-  jsi::AsyncHostFunctionType func) {
-  return runtime.createFunctionFromAsyncHostFunction(
-    name, paramCount, std::move(func));
-}
-
 inline Value Function::call(Runtime& runtime, const Value* args, size_t count)
     const {
   return runtime.call(*this, Value::undefined(), args, count);
@@ -284,12 +275,28 @@ inline Value Function::callWithThis(
 }
 
 inline Promise Promise::Catch(Runtime& runtime, jsi::Function& func) {
-	return runtime.Catch(runtime, *this, func);
+	return runtime.Catch(*this, func);
 };
 
 inline Promise Promise::Then(Runtime& runtime, jsi::Function& func) {
-	return runtime.Then(runtime, *this, func);
+	return runtime.Then(*this, func);
 };
+
+inline Value Promise::Result(Runtime& runtime) {
+  return runtime.Result(*this);
+}
+
+inline bool Promise::isPending(Runtime& runtime) {
+  return runtime.isPending(*this);
+}
+
+inline bool Promise::isFulfilled(Runtime& runtime) {
+  return runtime.isFulfilled(*this);
+}
+
+inline bool Promise::isRejected(Runtime& runtime) {
+  return runtime.isRejected(*this);
+}
 
 template <typename... Args>
 inline Array Array::createWithElements(Runtime& runtime, Args&&... args) {

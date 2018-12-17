@@ -90,11 +90,11 @@ public:
 
 ScriptHost::ScriptHost() {
 	
-	eventLoop_._taskQueue.push([this]() {
+  jsiEventLoop_._taskQueue.push([this]() {
 		runtime_ = facebook::v8runtime::makeV8Runtime();
 	});
 	
-	eventLoop_._taskQueue.push([this]() {
+  jsiEventLoop_._taskQueue.push([this]() {
 		runtime_->global().setProperty(
 			*runtime_,
 			"mylogger",
@@ -104,7 +104,7 @@ ScriptHost::ScriptHost() {
 				1,
 				JSILogger::getLogger()));
 
-		runtime_->global().setProperty(
+		/*runtime_->global().setProperty(
 			*runtime_,
 			"getTimeAsync",
 			jsi::Function::createFromAsyncHostFunction(
@@ -116,7 +116,7 @@ ScriptHost::ScriptHost() {
 			event->func_ = []() {return jsi::Value::undefined(); };
 			return event->promise_.get_future();
 
-		}));
+		}));*/
 
 		runtime_->global().setProperty(
 			*runtime_,
@@ -188,7 +188,7 @@ struct StringBuffer : public jsi::Buffer {
 };
 
 void ScriptHost::runScript(std::string& script) {
-	eventLoop_._taskQueue.push([this, script]() {
+  jsiEventLoop_._taskQueue.push([this, script]() {
 		try {
 			std::string sourceUrl("MyJS");
 			runtime_->evaluateJavaScript(std::make_unique<StringBuffer>(script), sourceUrl);
@@ -202,14 +202,14 @@ void ScriptHost::runScript(std::string& script) {
 double ScriptHost::setTimeout(jsi::Function&& jsiFuncCallback, double ms)
 {
   auto timeout = std::chrono::milliseconds(static_cast<long long>(ms));
-  auto timerId = eventLoop_.add(timeout, std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
+  auto timerId = jsiEventLoop_.add(timeout, std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
   return static_cast<double>(timerId);
 }
 
 double ScriptHost::setInterval(jsi::Function&& jsiFuncCallback, double delay)
 {
   auto timeout = std::chrono::milliseconds(static_cast<long long>(delay));
-  auto timerId = eventLoop_.addPeriodic(timeout, std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
+  auto timerId = jsiEventLoop_.addPeriodic(timeout, std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
   return static_cast<double>(timerId);
 }
 
@@ -217,7 +217,7 @@ double ScriptHost::setImmediate(jsi::Function&& jsiFuncCallback)
 {
   try
   {
-    auto timerId = eventLoop_.add(std::chrono::milliseconds(0), std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
+    auto timerId = jsiEventLoop_.add(std::chrono::milliseconds(0), std::make_unique<JSIFunctionProxy>(*runtime_, std::move(jsiFuncCallback)));
     return static_cast<double>(timerId);
   }
   catch (...)
@@ -228,5 +228,5 @@ double ScriptHost::setImmediate(jsi::Function&& jsiFuncCallback)
 
 void ScriptHost::clearTimeout(double timerId)
 {
-  eventLoop_.cancel(static_cast<size_t>(timerId));
+  jsiEventLoop_.cancel(static_cast<size_t>(timerId));
 }
