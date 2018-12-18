@@ -168,6 +168,19 @@ inline Promise Object::getPromise(Runtime& runtime) && {
 	return Promise(value);
 }
 
+inline PromiseResolver Object::getPromiseResolver(Runtime& runtime) const& {
+  assert(runtime.isPromise(*this));
+  return PromiseResolver(runtime.cloneObject(ptr_));
+}
+
+inline PromiseResolver Object::getPromiseResolver(Runtime& runtime) && {
+  assert(runtime.isPromise(*this));
+  (void)runtime; // when assert is disabled we need to mark this as used
+  Runtime::PointerValue* value = ptr_;
+  ptr_ = nullptr;
+  return PromiseResolver(value);
+}
+
 template <typename T>
 inline bool Object::isHostObject(Runtime& runtime) const {
   return runtime.isHostObject(*this) &&
@@ -279,7 +292,7 @@ inline Promise Promise::Catch(Runtime& runtime, jsi::Function& func) {
 };
 
 inline Promise Promise::Then(Runtime& runtime, jsi::Function& func) {
-	return runtime.Then(*this, func);
+    return runtime.Then(*this, func);
 };
 
 inline Value Promise::Result(Runtime& runtime) {
@@ -297,6 +310,23 @@ inline bool Promise::isFulfilled(Runtime& runtime) {
 inline bool Promise::isRejected(Runtime& runtime) {
   return runtime.isRejected(*this);
 }
+
+inline PromiseResolver PromiseResolver::create(Runtime& runtime) {
+  return runtime.createPromiseResolver();
+}
+
+inline void PromiseResolver::Resolve(Runtime& runtime, jsi::Value&& value) {
+  runtime.Resolve(*this, value);
+}
+
+inline void PromiseResolver::Reject(Runtime& runtime, jsi::Value&& value) {
+  runtime.Reject(*this, value);
+}
+
+inline Promise PromiseResolver::getPromise(Runtime& runtime) {
+  return runtime.getPromise(*this);
+}
+
 
 template <typename... Args>
 inline Array Array::createWithElements(Runtime& runtime, Args&&... args) {

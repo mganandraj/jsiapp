@@ -26,20 +26,30 @@ void EventLoop::loop() {
 void EventLoop::iteration()
 {
 	std::this_thread::sleep_for(std::chrono::seconds(2));
-	std::cout << "iter\n";
+	std::cout << "JSI loop : iter\n";
   
 	
 	while (!_taskQueue.empty()) {
-		std::cout << "task pop\n";
+		std::cout << "JSI loop : task pop\n";
 		auto func = _taskQueue.front();
 		_taskQueue.pop();
 		func();
+  }
+
+  while (!_jsiBgCompletedItems.empty()) {
+    std::cout << "JSI loop : bg task pop\n";
+    std::shared_ptr<BgJsiTask> bgEvent = _jsiBgCompletedItems.front();
+    _taskQueue.pop();
+
+    bgEvent->resolver.Resolve(bgEvent->runtime, facebook::jsi::valueFromDynamic(bgEvent->runtime, bgEvent->output));
   }
 	
 	if (_timerEvents.size() == 0)
   {
     return;
   }
+
+  std::cout << "JSI loop : timer event\n";
 
   std::chrono::time_point<std::chrono::steady_clock> next = _timerEvents.begin()->next_;
   std::chrono::milliseconds delay = _timerEvents.begin()->delay_;

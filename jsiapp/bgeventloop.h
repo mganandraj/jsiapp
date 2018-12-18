@@ -10,6 +10,7 @@
 #include <queue>
 
 struct BgJsiTask {
+  facebook::jsi::Runtime& runtime;
 	facebook::jsi::PromiseResolver resolver;
 	folly::dynamic input;
 	folly::dynamic output;

@@ -307,6 +307,11 @@ namespace facebook {
         const jsi::Value* args,
         size_t count) override;
 
+      jsi::PromiseResolver createPromiseResolver() override;
+      void Resolve(jsi::PromiseResolver& resolver, jsi::Value value) override;
+      void Reject(jsi::PromiseResolver& resolver, jsi::Value value) override;
+      jsi::Promise getPromise(jsi::PromiseResolver& resolver) override;
+
 	    jsi::Promise Catch(jsi::Promise& promise, jsi::Function& func) override;
 	    jsi::Promise Then(jsi::Promise& promise, jsi::Function& func) override;
 
@@ -903,33 +908,90 @@ namespace facebook {
       return createValue(newObject);
     }
 
+    jsi::PromiseResolver V8Runtime::createPromiseResolver() {
+      _ISOLATE_CONTEXT_ENTER
+      return createObject(v8::Promise::Resolver::New(isolate_)).getPromiseResolver(*this);
+    }
+
+    void V8Runtime::Resolve(jsi::PromiseResolver& resolver, jsi::Value value) {
+      v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
+      v8promiseResolver->Resolve(valueRef(value));
+    }
+
+    void V8Runtime::Reject(jsi::PromiseResolver& resolver, jsi::Value value) {
+      v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
+      v8promiseResolver->Reject(valueRef(value));
+    }
+
+    jsi::Promise V8Runtime::getPromise(jsi::PromiseResolver& resolver) {
+      v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
+      return createObject(v8promiseResolver->GetPromise()).getPromise(*this);
+    }
+
 	jsi::Promise V8Runtime::Catch(jsi::Promise& promise, jsi::Function& func) {
 		_ISOLATE_CONTEXT_ENTER
-		v8::Local<v8::Promise> v8promise = v8::Local<v8::Promise>::Cast(objectRef(promise));
-		v8::Local<v8::Function> v8Function = v8::Local<v8::Function>::Cast(objectRef(func));
-		
-		v8::Local<v8::Promise> newPromise;
-		if(!v8promise->Catch(isolate->GetCurrentContext(), v8Function).ToLocal(&newPromise)) {
-			throw jsi::JSError(*this, "Promise::Catch failed.");
-		}
+      if (promise.isPending(*this)) {
+        v8::Local<v8::Promise> v8promise = v8::Local<v8::Promise>::Cast(objectRef(promise));
+        v8::Local<v8::Function> v8Function = v8::Local<v8::Function>::Cast(objectRef(func));
 
-		return createObject(newPromise).getPromise(*this);
+        v8::Local<v8::Promise> newPromise;
+        if (!v8promise->Catch(isolate->GetCurrentContext(), v8Function).ToLocal(&newPromise)) {
+          throw jsi::JSError(*this, "Promise::Then failed.");
+        }
+
+        return createObject(newPromise).getPromise(*this);
+      }
+      else if (promise.isRejected(*this)) {
+        std::vector<jsi::Value> vargs;
+        vargs.push_back(std::move(promise.Result(*this)));
+        const jsi::Value* args = vargs.data();
+        jsi::Value ret = func.call(*this, args, vargs.size());
+        if (ret.isObject() && ret.asObject(*this).isPromise(*this)) {
+          return ret.asObject(*this).getPromise(*this);
+        }
+        else {
+          jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
+          resolver.Resolve(*this, createValue(valueRef(ret.asObject(*this))));
+          return resolver.getPromise(*this);
+        }
+      }
+      else {
+        // TODO :: Verify whether just ignoring this case is the right behaviour. We expect the caller to call ::Catch on this promise.
+      }
 	}
 
 	jsi::Promise V8Runtime::Then(jsi::Promise& promise, jsi::Function& func) {
 		_ISOLATE_CONTEXT_ENTER
-		v8::Local<v8::Promise> v8promise = v8::Local<v8::Promise>::Cast(objectRef(promise));
-		v8::Local<v8::Function> v8Function = v8::Local<v8::Function>::Cast(objectRef(func));
-		v8promise->Then(isolate->GetCurrentContext(), v8Function);
+    
+    if(promise.isPending(*this)) {
+      v8::Local<v8::Promise> v8promise = v8::Local<v8::Promise>::Cast(objectRef(promise));
+      v8::Local<v8::Function> v8Function = v8::Local<v8::Function>::Cast(objectRef(func));
+      
+      v8::Local<v8::Promise> newPromise;
+      if (!v8promise->Then(isolate->GetCurrentContext(), v8Function).ToLocal(&newPromise)) {
+        throw jsi::JSError(*this, "Promise::Then failed.");
+      }
 
-		v8::Local<v8::Promise> newPromise;
-		if (!v8promise->Catch(isolate->GetCurrentContext(), v8Function).ToLocal(&newPromise)) {
-			throw jsi::JSError(*this, "Promise::Then failed.");
-		}
-
-		return createObject(newPromise).getPromise(*this);
-	}
-
+      return createObject(newPromise).getPromise(*this);
+    } else if (promise.isFulfilled(*this)) {
+      std::vector<jsi::Value> vargs;
+      vargs.push_back(std::move(promise.Result(*this)));
+      const jsi::Value* args = vargs.data();
+      jsi::Value ret = func.call(*this, args, vargs.size());
+      if (ret.isObject() && ret.asObject(*this).isPromise(*this)) {
+        return ret.asObject(*this).getPromise(*this);
+      }
+      else {
+        jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
+        resolver.Resolve(*this, createValue(valueRef(ret.asObject(*this))));
+        return resolver.getPromise(*this);
+      }
+    }
+    else {
+      // TODO :: Verify whether just ignoring this case is the right behaviour. We expect the caller to call ::Catch on this promise.
+    }
+  }
+  
   jsi::Value V8Runtime::Result(jsi::Promise& promise) {
     _ISOLATE_CONTEXT_ENTER
     v8::Local<v8::Promise> v8Promise =  v8::Local<v8::Promise>::Cast(objectRef(promise));
@@ -1014,9 +1076,6 @@ namespace facebook {
           return createString(v8::Local<v8::String>::Cast(value));
         }
         else if (value->IsObject()) {
-
-			bool isPromise = value->IsPromise();
-
           return createObject(v8::Local<v8::Object>::Cast(value));
         }
         else {

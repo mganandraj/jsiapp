@@ -89,6 +89,9 @@ public:
 
 
 ScriptHost::ScriptHost() {
+  
+  jsiEventLoop_.loop();
+  bgEventLoop_.loop();
 	
   jsiEventLoop_._taskQueue.push([this]() {
 		runtime_ = facebook::v8runtime::makeV8Runtime();

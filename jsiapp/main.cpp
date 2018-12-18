@@ -30,8 +30,6 @@ int main()
 
   scriptHost.runScript(script);
 
-  scriptHost.jsiEventLoop_.loop();
-
   scriptHost.jsiEventLoop_._taskQueue.push([&scriptHost]() {
 	  facebook::jsi::Function func = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "getData");
 	  jsi::Value ret = func.call(*scriptHost.runtime_, nullptr, 0);

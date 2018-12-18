@@ -258,6 +258,12 @@ class Runtime {
   virtual Value
   callAsConstructor(const Function&, const Value* args, size_t count) = 0;
 
+  virtual jsi::PromiseResolver createPromiseResolver() = 0;
+
+  virtual void Resolve(jsi::PromiseResolver& resolver, jsi::Value value) = 0;
+  virtual void Reject(jsi::PromiseResolver& resolver, jsi::Value value) = 0;
+  virtual jsi::Promise getPromise(jsi::PromiseResolver& resolver) = 0;
+
   virtual Promise Catch(Promise& promise, Function& func) = 0;
   virtual Promise Then(Promise& promise, jsi::Function& func) = 0;
   virtual Value Result(Promise& promise) = 0;
@@ -583,6 +589,14 @@ class Object : public Pointer {
   /// \return a Promise instance which refers to the same underlying
   /// object.  If \c isPromise() would return false, this will assert.
   Promise getPromise(Runtime& runtime) && ;
+
+  /// \return a Promise instance which refers to the same underlying
+  /// object.  If \c isPromise() would return false, this will assert.
+  PromiseResolver getPromiseResolver(Runtime& runtime) const&;
+
+  /// \return a Promise instance which refers to the same underlying
+  /// object.  If \c isPromise() would return false, this will assert.
+  PromiseResolver getPromiseResolver(Runtime& runtime) && ;
 
   /// \return a Function instance which refers to the same underlying
   /// object.  If \c isFunction() would return false, this will throw
