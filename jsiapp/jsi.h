@@ -260,8 +260,8 @@ class Runtime {
 
   virtual jsi::PromiseResolver createPromiseResolver() = 0;
 
-  virtual void Resolve(jsi::PromiseResolver& resolver, jsi::Value value) = 0;
-  virtual void Reject(jsi::PromiseResolver& resolver, jsi::Value value) = 0;
+  virtual void Resolve(jsi::PromiseResolver& resolver, jsi::Value& value) = 0;
+  virtual void Reject(jsi::PromiseResolver& resolver, jsi::Value& value) = 0;
   virtual jsi::Promise getPromise(jsi::PromiseResolver& resolver) = 0;
 
   virtual Promise Catch(Promise& promise, Function& func) = 0;
@@ -785,8 +785,8 @@ public:
 	PromiseResolver(PromiseResolver&&) = default;
 	PromiseResolver& operator=(PromiseResolver&&) = default;
 
-	void Resolve(Runtime& runtime, jsi::Value value);
-	void Reject(Runtime& runtime, jsi::Value value);
+	void Resolve(Runtime& runtime, jsi::Value& value);
+	void Reject(Runtime& runtime, jsi::Value& value);
 
   Promise getPromise(Runtime& runtime);
 

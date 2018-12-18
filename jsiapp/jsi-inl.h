@@ -315,11 +315,11 @@ inline PromiseResolver PromiseResolver::create(Runtime& runtime) {
   return runtime.createPromiseResolver();
 }
 
-inline void PromiseResolver::Resolve(Runtime& runtime, jsi::Value&& value) {
+inline void PromiseResolver::Resolve(Runtime& runtime, jsi::Value& value) {
   runtime.Resolve(*this, value);
 }
 
-inline void PromiseResolver::Reject(Runtime& runtime, jsi::Value&& value) {
+inline void PromiseResolver::Reject(Runtime& runtime, jsi::Value& value) {
   runtime.Reject(*this, value);
 }
 

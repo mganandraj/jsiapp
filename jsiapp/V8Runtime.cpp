@@ -308,8 +308,8 @@ namespace facebook {
         size_t count) override;
 
       jsi::PromiseResolver createPromiseResolver() override;
-      void Resolve(jsi::PromiseResolver& resolver, jsi::Value value) override;
-      void Reject(jsi::PromiseResolver& resolver, jsi::Value value) override;
+      void Resolve(jsi::PromiseResolver& resolver, jsi::Value& value) override;
+      void Reject(jsi::PromiseResolver& resolver, jsi::Value& value) override;
       jsi::Promise getPromise(jsi::PromiseResolver& resolver) override;
 
 	    jsi::Promise Catch(jsi::Promise& promise, jsi::Function& func) override;
@@ -913,12 +913,12 @@ namespace facebook {
       return createObject(v8::Promise::Resolver::New(isolate_)).getPromiseResolver(*this);
     }
 
-    void V8Runtime::Resolve(jsi::PromiseResolver& resolver, jsi::Value value) {
+    void V8Runtime::Resolve(jsi::PromiseResolver& resolver, jsi::Value& value) {
       v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
       v8promiseResolver->Resolve(valueRef(value));
     }
 
-    void V8Runtime::Reject(jsi::PromiseResolver& resolver, jsi::Value value) {
+    void V8Runtime::Reject(jsi::PromiseResolver& resolver, jsi::Value& value) {
       v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
       v8promiseResolver->Reject(valueRef(value));
     }
@@ -951,7 +951,8 @@ namespace facebook {
         }
         else {
           jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
-          resolver.Resolve(*this, createValue(valueRef(ret.asObject(*this))));
+          jsi::Value result = ret.asObject(*this);
+          resolver.Resolve(*this, result);
           return resolver.getPromise(*this);
         }
       }
@@ -983,7 +984,8 @@ namespace facebook {
       }
       else {
         jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
-        resolver.Resolve(*this, createValue(valueRef(ret.asObject(*this))));
+        jsi::Value result = ret.asObject(*this);
+        resolver.Resolve(*this, result);
         return resolver.getPromise(*this);
       }
     }

@@ -41,7 +41,8 @@ void EventLoop::iteration()
     std::shared_ptr<BgJsiTask> bgEvent = _jsiBgCompletedItems.front();
     _taskQueue.pop();
 
-    bgEvent->resolver.Resolve(bgEvent->runtime, facebook::jsi::valueFromDynamic(bgEvent->runtime, bgEvent->output));
+    facebook::jsi::Value result = facebook::jsi::valueFromDynamic(bgEvent->runtime, bgEvent->output);
+    bgEvent->resolver.Resolve(bgEvent->runtime, result);
   }
 	
 	if (_timerEvents.size() == 0)

@@ -13,7 +13,7 @@ public:
   std::unique_ptr<facebook::jsi::Runtime> runtime_;
 
   EventLoop jsiEventLoop_;
-  EventLoop bgEventLoop_;
+  BgEventLoop bgEventLoop_;
 
   ScriptHost();
 
