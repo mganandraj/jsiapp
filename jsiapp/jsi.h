@@ -771,8 +771,8 @@ public:
 	PromiseResolver(PromiseResolver&&) = default;
 	PromiseResolver& operator=(PromiseResolver&&) = default;
 
-	void Resolve(Runtime& runtime, jsi::Value& value);
-	void Reject(Runtime& runtime, jsi::Value& value);
+	void Resolve(Runtime& runtime, jsi::Value value);
+	void Reject(Runtime& runtime, jsi::Value value);
 
   Promise getPromise(Runtime& runtime);
 

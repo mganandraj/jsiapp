@@ -41,6 +41,9 @@
     <ClInclude Include="typedjsi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="bgeventloop.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -65,6 +68,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="eventloop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bgeventloop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

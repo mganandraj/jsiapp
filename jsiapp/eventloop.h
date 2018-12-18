@@ -9,6 +9,8 @@
 
 #include <queue>
 
+#include<bgeventloop.h>
+
 struct JSIFunctionProxy {
   void operator()() {
     jsiFunc_.call(jsiRuntime_);
@@ -66,7 +68,9 @@ struct EventLoop
   size_t add(const std::chrono::milliseconds& delay, std::unique_ptr<JSIFunctionProxy>&& handler);
   size_t addPeriodic(const std::chrono::milliseconds& delay, std::unique_ptr<JSIFunctionProxy>&& handler);
 
-  void add(std::unique_ptr<AsyncEvent> asyncEvent);
+  /*void add(std::unique_ptr<AsyncEvent> asyncEvent);
+*/
+  void add(std::shared_ptr<BgJsiTask> jsiBgItem);
 
   void cancel(size_t timerId);
 
@@ -79,7 +83,7 @@ struct EventLoop
 
   std::queue<std::function<void()>> _taskQueue;
   
-  std::multiset<std::unique_ptr<AsyncEvent>> _asyncEvents;
+  std::queue<std::shared_ptr<BgJsiTask>> _jsiBgCompletedItems;
 
   // Holds the currently running timerId; goes to 0 if timer was cleared in its own handler
   size_t _currentTimerId;

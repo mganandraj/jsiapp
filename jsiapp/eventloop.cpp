@@ -77,10 +77,14 @@ size_t GetUnusedTimerId() noexcept
   return timerId++;
 }
 
-void EventLoop::add(std::unique_ptr<AsyncEvent> asyncEvent)
-{
-	_asyncEvents.emplace(std::move(asyncEvent));
+void EventLoop::add(std::shared_ptr<BgJsiTask> jsiBgItem) {
+	_jsiBgCompletedItems.push(jsiBgItem);
 }
+//
+//void EventLoop::add(std::unique_ptr<AsyncEvent> asyncEvent)
+//{
+//	_asyncEvents.emplace(std::move(asyncEvent));
+//}
 
 // Parameter could be size_t instead of double, but this makes it easy to pass the js number through
 size_t EventLoop::add(const std::chrono::milliseconds& delay, std::unique_ptr<JSIFunctionProxy>&& handler)

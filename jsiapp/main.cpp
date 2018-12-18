@@ -69,8 +69,11 @@ int main()
 
         folly::dynamic arg = facebook::jsi::dynamicFromValue(*scriptHost.runtime_, args[0]);
 
-        
-        return resolver.getPromise(*scriptHost.runtime_);
+        jsi::Value promise = resolver.getPromise(*scriptHost.runtime_);
+
+		
+
+		return promise;
     });
 
   });

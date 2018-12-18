@@ -153,6 +153,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="bgeventloop.h" />
     <ClInclude Include="eventloop.h" />
     <ClInclude Include="instrumentation.h" />
     <ClInclude Include="jsi-inl.h" />
@@ -165,6 +166,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="bgeventloop.cpp" />
     <ClCompile Include="eventloop.cpp" />
     <ClCompile Include="jsi.cpp" />
     <ClCompile Include="JSIDynamic.cpp" />
