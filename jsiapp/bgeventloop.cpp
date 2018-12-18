@@ -1,12 +1,14 @@
 #include "stdafx.h"
 
-#include "bgeventloop.h"
+#include "eventloop.h"
 
 #include <algorithm>
 
 #include <chrono>
 
 #include <iostream>
+
+#include "scripthost.h"
 
 BgEventLoop::BgEventLoop() {
 
@@ -35,6 +37,8 @@ void BgEventLoop::iteration()
 		_taskQueue.pop();
 		
 		bgEvent->output = bgEvent->func(bgEvent->input);
+
+    bgEvent->jsiEventLoop->add(bgEvent);
 	}
 }
 

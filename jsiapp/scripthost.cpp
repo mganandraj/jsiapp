@@ -183,11 +183,6 @@ struct StringBuffer : public jsi::Buffer {
     : string_(str) {}
     
   const std::string string_;
-
-  /*std::string javascript_ = ""
-    "print('hello v8...');"
-    "//mylogger('hello v8 ... its me ...');"
-    "//throw 10;";*/
 };
 
 void ScriptHost::runScript(std::string& script) {

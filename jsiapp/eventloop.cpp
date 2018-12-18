@@ -39,7 +39,7 @@ void EventLoop::iteration()
   while (!_jsiBgCompletedItems.empty()) {
     std::cout << "JSI loop : bg task pop\n";
     std::shared_ptr<BgJsiTask> bgEvent = _jsiBgCompletedItems.front();
-    _taskQueue.pop();
+    _jsiBgCompletedItems.pop();
 
     facebook::jsi::Value result = facebook::jsi::valueFromDynamic(bgEvent->runtime, bgEvent->output);
     bgEvent->resolver.Resolve(bgEvent->runtime, result);

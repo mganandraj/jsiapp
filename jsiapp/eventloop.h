@@ -9,7 +9,34 @@
 
 #include <queue>
 
-#include<bgeventloop.h>
+#include "JSIDynamic.h"
+
+struct EventLoop;
+
+struct BgJsiTask {
+  BgJsiTask(facebook::jsi::Runtime& _runtime, facebook::jsi::PromiseResolver&& _resolver, EventLoop* _jsiEventLoop) : resolver(std::move(_resolver)), runtime(_runtime), jsiEventLoop(_jsiEventLoop){}
+  EventLoop* jsiEventLoop;
+  facebook::jsi::Runtime& runtime;
+  facebook::jsi::PromiseResolver resolver;
+  folly::dynamic input;
+  folly::dynamic output;
+  std::function<folly::dynamic(folly::dynamic&)> func;
+};
+
+struct BgEventLoop
+{
+  void iteration();
+
+  std::thread t_;
+  void threadProc();
+  void loop();
+
+  void add(std::shared_ptr<BgJsiTask> handler);
+
+  BgEventLoop();
+
+  std::queue<std::shared_ptr<BgJsiTask>> _taskQueue;
+};
 
 struct JSIFunctionProxy {
   void operator()() {

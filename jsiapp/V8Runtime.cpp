@@ -914,16 +914,19 @@ namespace facebook {
     }
 
     void V8Runtime::Resolve(jsi::PromiseResolver& resolver, jsi::Value& value) {
+      _ISOLATE_CONTEXT_ENTER
       v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
       v8promiseResolver->Resolve(valueRef(value));
     }
 
     void V8Runtime::Reject(jsi::PromiseResolver& resolver, jsi::Value& value) {
+      _ISOLATE_CONTEXT_ENTER
       v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
       v8promiseResolver->Reject(valueRef(value));
     }
 
     jsi::Promise V8Runtime::getPromise(jsi::PromiseResolver& resolver) {
+      _ISOLATE_CONTEXT_ENTER
       v8::Local<v8::Promise::Resolver> v8promiseResolver = v8::Local<v8::Promise::Resolver>::Cast(objectRef(resolver));
       return createObject(v8promiseResolver->GetPromise()).getPromise(*this);
     }
@@ -951,13 +954,14 @@ namespace facebook {
         }
         else {
           jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
-          jsi::Value result = ret.asObject(*this);
-          resolver.Resolve(*this, result);
+          resolver.Resolve(*this, ret);
           return resolver.getPromise(*this);
         }
       }
       else {
-        // TODO :: Verify whether just ignoring this case is the right behaviour. We expect the caller to call ::Catch on this promise.
+        // TODO :: Is this the right behaviour ?
+        jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
+        return resolver.getPromise(*this);
       }
 	}
 
@@ -984,13 +988,14 @@ namespace facebook {
       }
       else {
         jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
-        jsi::Value result = ret.asObject(*this);
-        resolver.Resolve(*this, result);
+        resolver.Resolve(*this, ret);
         return resolver.getPromise(*this);
       }
     }
     else {
-      // TODO :: Verify whether just ignoring this case is the right behaviour. We expect the caller to call ::Catch on this promise.
+      // TODO :: Is this the right behaviour ?
+      jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*this);
+      return resolver.getPromise(*this);
     }
   }
   
