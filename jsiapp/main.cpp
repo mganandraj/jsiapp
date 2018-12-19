@@ -50,7 +50,7 @@ int main()
 
         std::shared_ptr<BgJsiTask> task = std::make_shared<BgJsiTask>(*scriptHost.runtime_, std::move(resolver), &scriptHost.jsiEventLoop_);
         task->input = arg;
-        task->func = [](folly::dynamic& input) {return folly::dynamic("abcd"); };
+        task->func = [](folly::dynamic& input) {return input; };
 
         scriptHost.bgEventLoop_.add(task);
 
@@ -61,7 +61,7 @@ int main()
 
   });
 
-  std::string script("var promise = getDataAsync([]); print('Hoy');promise.then(function(value) { print(value);});");
+  std::string script("var promise = getDataAsync('xyz'); print('Hoy');promise.then(function(value) { print(value);});");
   scriptHost.runScript(script);
 
   scriptHost.jsiEventLoop_.t_.join();
