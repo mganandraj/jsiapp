@@ -154,6 +154,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="eventloop.h" />
+    <ClInclude Include="inspector_agent.h" />
+    <ClInclude Include="inspector_socket_server.h" />
     <ClInclude Include="instrumentation.h" />
     <ClInclude Include="jsi-inl.h" />
     <ClInclude Include="jsi.h" />
@@ -163,10 +165,12 @@
     <ClInclude Include="V8Runtime.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="v8_inspector_protocol_json.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bgeventloop.cpp" />
     <ClCompile Include="eventloop.cpp" />
+    <ClCompile Include="inspector_agent.cpp" />
     <ClCompile Include="jsi.cpp" />
     <ClCompile Include="JSIDynamic.cpp" />
     <ClCompile Include="main.cpp" />
