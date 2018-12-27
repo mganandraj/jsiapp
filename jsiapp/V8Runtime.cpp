@@ -16,6 +16,8 @@
 #include <atomic>
 #include <list>
 
+#include "inspector_agent.h"
+
 #define _ISOLATE_CONTEXT_ENTER v8::Isolate *isolate = v8::Isolate::GetCurrent(); \
     v8::Isolate::Scope isolate_scope(isolate); \
     v8::HandleScope handle_scope(isolate); \
@@ -362,6 +364,8 @@ namespace facebook {
       std::list<std::shared_ptr<HostObjectLifetimeTracker>> hostObjectLifetimeTrackerList_;
 
       std::string desc_;
+
+      node::inspector::Agent inspectorAgent_;
     };
 
     // String utilities
@@ -405,6 +409,7 @@ namespace facebook {
 
       v8::V8::Initialize();
 
+
       create_params_.array_buffer_allocator = v8::ArrayBuffer::Allocator::NewDefaultAllocator();
 
       isolate_ = v8::Isolate::New(create_params_);
@@ -414,6 +419,8 @@ namespace facebook {
       context_.Reset(GetIsolate(), CreateContext(isolate_));
 
       v8::Context::Scope context_scope(context_.Get(GetIsolate()));
+
+      inspectorAgent_.Start(platform, "", 8080, true);
 
       // Create and keep the constuctor for creating Host objects.
       v8::Local<v8::FunctionTemplate> constructorForHostObjectTemplate = v8::FunctionTemplate::New(isolate_);

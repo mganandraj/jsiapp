@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 #include <chrono>
+#include <thread>
 
 #define CHECK(expr) do { if (!(expr)) std::abort();} while(0)
 #define CHECK_EQ(expr1, expr2) do { if ((expr1) != (expr2) ) std::abort();} while(0)
@@ -260,7 +261,7 @@ namespace node {
 		public:
 			InspectorAgentDelegate(AgentImpl* agent, const std::string& script_path,
 				const std::string& script_name, bool wait);
-			bool StartSession(int session_id, const std::string& target_id) override;
+			bool StartSession(int session_id/*, const std::string& target_id*/) override;
 			void MessageReceived(int session_id, const std::string& message) override;
 			void EndSession(int session_id) override;
 			std::vector<std::string> GetTargetIds() override;
@@ -450,7 +451,7 @@ namespace node {
 
 			v8::Local<v8::Context> ensureDefaultContextInGroup(int contextGroupId)
 				override {
-				//return env_->context();
+        return v8::Isolate::GetCurrent()->GetCurrentContext();
 			}
 
 			V8Inspector* inspector() {
@@ -564,10 +565,36 @@ namespace node {
 			if (path != nullptr)
 				script_name_ = path;
 
-			InstallInspectorOnProcess();
+			// InstallInspectorOnProcess();
+
+      std::thread([this]() {
+        InspectorAgentDelegate delegate(this, "", script_name_, wait_);
+        delegate_ = &delegate;
+        InspectorSocketServer server(&delegate, port_);
+        server_ = &server;
+        
+        // This loops
+        if (!server.Start()) {
+          std::abort();
+        }
+        
+        //auto const address = boost::asio::ip::make_address("0.0.0.0");
+        //unsigned short const port = 8080;
+        //std::string const doc_root = ".";
+
+        //// The io_context is required for all I/O
+        //boost::asio::io_context ioc{ 1 };
+
+        //// Create and launch a listening port
+        //std::make_shared<listener>(ioc, tcp::endpoint{ address, port }, doc_root)->run();
+
+        //ioc.run();
+      }).detach();
 
 			/*int err = uv_loop_init(&child_loop_);
 			CHECK_EQ(err, 0);*/
+
+      
 
 			port_ = port;
 			wait_ = wait;
@@ -870,8 +897,7 @@ namespace node {
 			waiting_(wait) { }
 
 
-		bool InspectorAgentDelegate::StartSession(int session_id,
-			const std::string& target_id) {
+		bool InspectorAgentDelegate::StartSession(int session_id) {
 			if (connected_)
 				return false;
 			connected_ = true;

@@ -14,7 +14,7 @@ namespace node {
 
 		class SocketServerDelegate {
 		public:
-			virtual bool StartSession(int session_id, const std::string& target_id) = 0;
+			virtual bool StartSession(int session_id/*, const std::string& target_id*/) = 0;
 			virtual void EndSession(int session_id) = 0;
 			virtual void MessageReceived(int session_id, const std::string& message) = 0;
 			virtual std::vector<std::string> GetTargetIds() = 0;
@@ -31,25 +31,29 @@ namespace node {
 			void Send(int session_id, const std::string& message);
 			void TerminateConnections(ServerCallback callback);
 
-		private:
+      SocketServerDelegate* Delegate() { return delegate_; }
+
+    public:
+		//private:
 			/*static bool HandshakeCallback(InspectorSocket* socket,
 				enum inspector_handshake_event state,
 				const std::string& path);*/
-			//static void SocketConnectedCallback(uv_stream_t* server, int status);
+			static void SocketConnectedCallback();
 			//static void ServerClosedCallback(uv_handle_t* server);
 			template<typename SomeUvStruct>
 			static InspectorSocketServer* From(SomeUvStruct* server) {
-				return node::ContainerOf(&InspectorSocketServer::server_,
-					reinterpret_cast<uv_tcp_t*>(server));
+				//return node::ContainerOf(&InspectorSocketServer::server_,
+				//	reinterpret_cast<uv_tcp_t*>(server));
+        return nullptr;
 			}
 			//bool RespondToGet(InspectorSocket* socket, const std::string& path);
 			//void SendListResponse(InspectorSocket* socket);
 			//void ReadCallback(InspectorSocket* socket, ssize_t read, const uv_buf_t* buf);
-			bool SessionStarted(SocketSession* session, const std::string& id);
+			bool SessionStarted(/*const std::string& id*/int sessions_id);
 			void SessionTerminated(int id);
 			bool TargetExists(const std::string& id);
 			static void SocketSessionDeleter(SocketSession*);
-			SocketServerDelegate* Delegate() { return delegate_; }
+			
 
 			//uv_loop_t* loop_;
 			SocketServerDelegate* const delegate_;
@@ -57,8 +61,8 @@ namespace node {
 			std::string path_;
 			// uv_tcp_t server_;
 			Closer* closer_;
-			std::map<int, SocketSession*> connected_sessions_;
-			int next_session_id_;
+			// std::map<int, SocketSession*> connected_sessions_;
+      int next_session_id_;
 
 			friend class SocketSession;
 			friend class Closer;

@@ -2,43 +2,43 @@
 
 #include "inspector_socket_server.h"
 
-//#include "node.h"
-//#include "uv.h"
-#include "zlib.h"
-
 #include <algorithm>
 #include <map>
 #include <set>
 #include <sstream>
+#include <string>
 
+void WsServerStart(node::inspector::InspectorSocketServer* server, const char* host, unsigned short port);
+
+void write_ws(std::string message);
 
 #define CHECK(expr) do { if (!(expr)) std::abort();} while(0)
 #define CHECK_EQ(expr1, expr2) do { if ((expr1) != (expr2) ) std::abort();} while(0)
 #define CHECK_NE(expr1, expr2) do { if ((expr1) == (expr2) ) std::abort();} while(0)
 
-char ToLower(char c) {
-	return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
-}
+//char ToLower(char c) {
+//	return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
+//}
 
-bool StringEqualNoCase(const char* a, const char* b) {
-	do {
-		if (*a == '\0')
-			return *b == '\0';
-		if (*b == '\0')
-			return *a == '\0';
-	} while (ToLower(*a++) == ToLower(*b++));
-	return false;
-}
-
-bool StringEqualNoCaseN(const char* a, const char* b, size_t length) {
-	for (size_t i = 0; i < length; i++) {
-		if (ToLower(a[i]) != ToLower(b[i]))
-			return false;
-		if (a[i] == '\0')
-			return true;
-	}
-	return true;
-}
+//bool StringEqualNoCase(const char* a, const char* b) {
+//	do {
+//		if (*a == '\0')
+//			return *b == '\0';
+//		if (*b == '\0')
+//			return *a == '\0';
+//	} while (ToLower(*a++) == ToLower(*b++));
+//	return false;
+//}
+//
+//bool StringEqualNoCaseN(const char* a, const char* b, size_t length) {
+//	for (size_t i = 0; i < length; i++) {
+//		if (ToLower(a[i]) != ToLower(b[i]))
+//			return false;
+//		if (a[i] == '\0')
+//			return true;
+//	}
+//	return true;
+//}
 
 namespace node {
 	namespace inspector {
@@ -91,7 +91,7 @@ namespace node {
 				return json.str();
 			}
 
-			const char* MatchPathSegment(const char* path, const char* expected) {
+			/*const char* MatchPathSegment(const char* path, const char* expected) {
 				size_t len = strlen(expected);
 				if (StringEqualNoCaseN(path, expected, len)) {
 					if (path[len] == '/') return path + len + 1;
@@ -99,7 +99,7 @@ namespace node {
 				}
 				return nullptr;
 			}
-
+*/
 			/*void OnBufferAlloc(uv_handle_t* handle, size_t len, uv_buf_t* buf) {
 				buf->base = new char[len];
 				buf->len = len;
@@ -143,7 +143,7 @@ namespace node {
 			}
 
 			void SendProtocolJson(/*InspectorSocket* socket*/) {
-				z_stream strm;
+				/*z_stream strm;
 				strm.zalloc = Z_NULL;
 				strm.zfree = Z_NULL;
 				strm.opaque = Z_NULL;
@@ -159,7 +159,7 @@ namespace node {
 				strm.avail_out = data.size();
 				CHECK_EQ(Z_STREAM_END, inflate(&strm, Z_FINISH));
 				CHECK_EQ(0, strm.avail_out);
-				CHECK_EQ(Z_OK, inflateEnd(&strm));
+				CHECK_EQ(Z_OK, inflateEnd(&strm));*/
 				// SendHttpResponse(socket, data);
 			}
 
@@ -203,39 +203,41 @@ namespace node {
 			int close_count_;
 		};
 
-		class SocketSession {
-		public:
-			SocketSession(InspectorSocketServer* server, int id);
-			void Close(bool socket_cleanup, Closer* closer);
-			void Declined() { state_ = State::kDeclined; }
-			/*static SocketSession* From(InspectorSocket* socket) {
-				return node::ContainerOf(&SocketSession::socket_, socket);
-			}*/
-			void FrontendConnected();
-			InspectorSocketServer* GetServer() { return server_; }
-			int Id() { return id_; }
-			void Send(const std::string& message);
-			void SetTargetId(const std::string& target_id) {
-				CHECK(target_id_.empty());
-				target_id_ = target_id;
-			}
-			// InspectorSocket* Socket() { return &socket_; }
-			const std::string TargetId() { return target_id_; }
+		//class SocketSession {
+		//public:
+		//	SocketSession(InspectorSocketServer* server, int id);
+		//	void Close(bool socket_cleanup, Closer* closer);
+		//	void Declined() { state_ = State::kDeclined; }
+		//	/*static SocketSession* From(InspectorSocket* socket) {
+		//		return node::ContainerOf(&SocketSession::socket_, socket);
+		//	}*/
+		//	void FrontendConnected();
+		//	InspectorSocketServer* GetServer() { return server_; }
+		//	int Id() { return id_; }
+		//	void Send(const std::string& message);
+		//	void SetTargetId(const std::string& target_id) {
+		//		CHECK(target_id_.empty());
+		//		target_id_ = target_id;
+		//	}
+		//	// InspectorSocket* Socket() { return &socket_; }
+		//	const std::string TargetId() { return target_id_; }
 
-		private:
-			enum class State { kHttp, kWebSocket, kClosing, kEOF, kDeclined };
-			/*static void CloseCallback_(InspectorSocket* socket, int code);
-			static void ReadCallback_(uv_stream_t* stream, ssize_t read,
-				const uv_buf_t* buf);
-			void OnRemoteDataIO(InspectorSocket* socket, ssize_t read,
-				const uv_buf_t* buf);*/
-			const int id_;
-			Closer* closer_;
-			//InspectorSocket socket_;
-			InspectorSocketServer* server_;
-			std::string target_id_;
-			State state_;
-		};
+		//private:
+		//	enum class State { kHttp, kWebSocket, kClosing, kEOF, kDeclined };
+		//	/*static void CloseCallback_(InspectorSocket* socket, int code);
+		//	static void ReadCallback_(uv_stream_t* stream, ssize_t read,
+		//		const uv_buf_t* buf);
+		//	void OnRemoteDataIO(InspectorSocket* socket, ssize_t read,
+		//		const uv_buf_t* buf);*/
+		//	const int id_;
+		//	Closer* closer_;
+		//	//InspectorSocket socket_;
+		//	InspectorSocketServer* server_;
+		//	std::string target_id_;
+		//	State state_;
+
+
+		//};
 
 		InspectorSocketServer::InspectorSocketServer(SocketServerDelegate* delegate,
 			int port) : /* loop_(nullptr),*/
@@ -268,26 +270,23 @@ namespace node {
 			}
 		}*/
 
-		bool InspectorSocketServer::SessionStarted(SocketSession* session,
-			const std::string& id) {
-			bool connected = false;
-			if (TargetExists(id)) {
-				connected = delegate_->StartSession(session->Id(), id);
-			}
-			if (connected) {
+		bool InspectorSocketServer::SessionStarted(int session_id) {
+			bool connected = delegate_->StartSession(1);
+			
+      /*if (connected) {
 				connected_sessions_[session->Id()] = session;
 				session->SetTargetId(id);
 			}
 			else {
 				session->Declined();
-			}
+			}*/
 			return connected;
 		}
 
 		void InspectorSocketServer::SessionTerminated(int session_id) {
-			if (connected_sessions_.erase(session_id) == 0) {
+			/*if (connected_sessions_.erase(session_id) == 0) {
 				return;
-			}
+			}*/
 			delegate_->EndSession(session_id);
 			/*if (connected_sessions_.empty() &&
 				uv_is_active(reinterpret_cast<uv_handle_t*>(&server_))) {
@@ -360,6 +359,7 @@ namespace node {
 		//}
 
 		bool InspectorSocketServer::Start() {
+      WsServerStart(this, "0.0.0.0", port_);
 			/*loop_ = loop;
 			sockaddr_in addr;
 			uv_tcp_init(loop_, &server_);
@@ -379,6 +379,8 @@ namespace node {
 				return false;
 			}
 			return true;*/
+
+      return true;
 		}
 
 		void InspectorSocketServer::Stop(ServerCallback cb) {
@@ -396,7 +398,7 @@ namespace node {
 		}
 
 		void InspectorSocketServer::TerminateConnections(ServerCallback cb) {
-			if (closer_ == nullptr) {
+			/*if (closer_ == nullptr) {
 				closer_ = new Closer(this);
 			}
 			closer_->AddCallback(cb);
@@ -406,7 +408,7 @@ namespace node {
 				int id = session.second->Id();
 				session.second->Close(true, closer_);
 				delegate_->EndSession(id);
-			}
+			}*/
 			closer_->NotifyIfDone();
 		}
 
@@ -417,10 +419,11 @@ namespace node {
 		}
 
 		void InspectorSocketServer::Send(int session_id, const std::string& message) {
-			auto session_iterator = connected_sessions_.find(session_id);
+			/*auto session_iterator = connected_sessions_.find(session_id);
 			if (session_iterator != connected_sessions_.end()) {
 				session_iterator->second->Send(message);
-			}
+			}*/
+      write_ws(message);
 		}
 
 		// static
@@ -431,38 +434,36 @@ namespace node {
 		}*/
 
 		// static
-		/*void InspectorSocketServer::SocketConnectedCallback(uv_stream_t* server,
-			int status) {
-			if (status == 0) {
+		void InspectorSocketServer::SocketConnectedCallback() {
+			/*if (status == 0) {
 				InspectorSocketServer* socket_server = InspectorSocketServer::From(server);
 				SocketSession* session =
 					new SocketSession(socket_server, socket_server->next_session_id_++);
 				if (inspector_accept(server, session->Socket(), HandshakeCallback) != 0) {
 					delete session;
 				}
-			}
-		}*/
-
-		// InspectorSession tracking
-		SocketSession::SocketSession(InspectorSocketServer* server, int id)
-			: id_(id), closer_(nullptr), server_(server),
-			state_(State::kHttp) { }
-
-		void SocketSession::Close(bool socket_cleanup, Closer* closer) {
-			CHECK_EQ(closer_, nullptr);
-			CHECK_NE(state_, State::kClosing);
-			server_->SessionTerminated(id_);
-			if (socket_cleanup) {
-				state_ = State::kClosing;
-				closer_ = closer;
-				if (closer_ != nullptr)
-					closer->IncreaseExpectedCount();
-				//inspector_close(&socket_, CloseCallback_);
-			}
-			else {
-				delete this;
-			}
+			}*/
 		}
+		// InspectorSession tracking
+		//SocketSession::SocketSession(InspectorSocketServer* server, int id)
+		//	: id_(id), closer_(nullptr), server_(server),
+		//	state_(State::kHttp) { }
+
+		//void SocketSession::Close(bool socket_cleanup, Closer* closer) {
+		//	CHECK_EQ(closer_, nullptr);
+		//	CHECK_NE(state_, State::kClosing);
+		//	server_->SessionTerminated(id_);
+		//	if (socket_cleanup) {
+		//		state_ = State::kClosing;
+		//		closer_ = closer;
+		//		if (closer_ != nullptr)
+		//			closer->IncreaseExpectedCount();
+		//		//inspector_close(&socket_, CloseCallback_);
+		//	}
+		//	else {
+		//		delete this;
+		//	}
+		//}
 
 		// static
 		/*void SocketSession::CloseCallback_(InspectorSocket* socket, int code) {
@@ -474,11 +475,11 @@ namespace node {
 			delete session;
 		}*/
 
-		void SocketSession::FrontendConnected() {
-			CHECK_EQ(State::kHttp, state_);
-			state_ = State::kWebSocket;
-			// inspector_read_start(&socket_, OnBufferAlloc, ReadCallback_);
-		}
+		//void SocketSession::FrontendConnected() {
+		//	CHECK_EQ(State::kHttp, state_);
+		//	state_ = State::kWebSocket;
+		//	// inspector_read_start(&socket_, OnBufferAlloc, ReadCallback_);
+		//}
 
 		// static
 		/*void SocketSession::ReadCallback_(uv_stream_t* stream, ssize_t read,
@@ -500,9 +501,9 @@ namespace node {
 				delete[] buf->base;
 		}*/
 
-		void SocketSession::Send(const std::string& message) {
-			// inspector_write(&socket_, message.data(), message.length());
-		}
+		//void SocketSession::Send(const std::string& message) {
+		//	// inspector_write(&socket_, message.data(), message.length());
+		//}
 
 	}  // namespace inspector
 }  // namespace node

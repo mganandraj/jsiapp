@@ -82,5 +82,11 @@
     <ClCompile Include="inspector_agent.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="inspector_socket_server.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WsServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
