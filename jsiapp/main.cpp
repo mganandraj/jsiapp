@@ -8,7 +8,7 @@ using namespace facebook;
 int main()
 {
 
-	ScriptHost scriptHost;
+	// ScriptHost::instance() ScriptHost::instance();
 	//std::string script("function getData() { "
 	//	"return new Promise(function(resolve, reject) {"
 //			  "var func = function(){ resolve('foo'); };"
@@ -20,49 +20,50 @@ int main()
 	//"function catchh(arg) {print('catchh::' + arg)};"
 	//"/*getData().then(later);*/");
 
-  /*scriptHost.jsiEventLoop_._taskQueue.push([&scriptHost]() {
-     facebook::jsi::Function func = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "getData");
-     jsi::Value ret = func.call(*scriptHost.runtime_, nullptr, 0);
-     jsi::Promise promise = ret.getObject(*scriptHost.runtime_).getPromise(*scriptHost.runtime_);
+  /*ScriptHost::instance().jsiEventLoop_._taskQueue.push([&ScriptHost::instance()]() {
+     facebook::jsi::Function func = ScriptHost::instance().runtime_->global().getPropertyAsFunction(*ScriptHost::instance().runtime_, "getData");
+     jsi::Value ret = func.call(*ScriptHost::instance().runtime_, nullptr, 0);
+     jsi::Promise promise = ret.getObject(*ScriptHost::instance().runtime_).getPromise(*ScriptHost::instance().runtime_);
        
      {
-       facebook::jsi::Function laterFunc = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "later");
-       jsi::Promise res = promise.Then(*scriptHost.runtime_, laterFunc);
+       facebook::jsi::Function laterFunc = ScriptHost::instance().runtime_->global().getPropertyAsFunction(*ScriptHost::instance().runtime_, "later");
+       jsi::Promise res = promise.Then(*ScriptHost::instance().runtime_, laterFunc);
      }
 
      {
-       facebook::jsi::Function catchFunc = scriptHost.runtime_->global().getPropertyAsFunction(*scriptHost.runtime_, "catchh");
-       jsi::Promise res2 = promise.Catch(*scriptHost.runtime_, catchFunc);
+       facebook::jsi::Function catchFunc = ScriptHost::instance().runtime_->global().getPropertyAsFunction(*ScriptHost::instance().runtime_, "catchh");
+       jsi::Promise res2 = promise.Catch(*ScriptHost::instance().runtime_, catchFunc);
      }
   });*/
 
-  scriptHost.jsiEventLoop_._taskQueue.push([&scriptHost]() {
-    facebook::jsi::Function func = jsi::Function::createFromHostFunction(*scriptHost.runtime_, jsi::PropNameID::forAscii(*scriptHost.runtime_, "getDataAsync"),
+  ScriptHost::instance().jsiEventLoop_._taskQueue.push([]() {
+    facebook::jsi::Function func = jsi::Function::createFromHostFunction(*ScriptHost::instance().runtime_, jsi::PropNameID::forAscii(*ScriptHost::instance().runtime_, "getDataAsync"),
       1, 
-      [&scriptHost](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) {
+      [](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) {
         assert(count == 1);
         
-        jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*scriptHost.runtime_);
+        jsi::PromiseResolver resolver = jsi::PromiseResolver::create(*ScriptHost::instance().runtime_);
 
-        folly::dynamic arg = facebook::jsi::dynamicFromValue(*scriptHost.runtime_, args[0]);
+        folly::dynamic arg = facebook::jsi::dynamicFromValue(*ScriptHost::instance().runtime_, args[0]);
 
-        jsi::Value promise = resolver.getPromise(*scriptHost.runtime_);
+        jsi::Value promise = resolver.getPromise(*ScriptHost::instance().runtime_);
 
-        std::shared_ptr<BgJsiTask> task = std::make_shared<BgJsiTask>(*scriptHost.runtime_, std::move(resolver), &scriptHost.jsiEventLoop_);
+        std::shared_ptr<BgJsiTask> task = std::make_shared<BgJsiTask>(*ScriptHost::instance().runtime_, std::move(resolver), &ScriptHost::instance().jsiEventLoop_);
         task->input = arg;
         task->func = [](folly::dynamic& input) {return input; };
 
-        scriptHost.bgEventLoop_.add(task);
+        ScriptHost::instance().bgEventLoop_.add(task);
 
 		    return promise;
     });
 
-    scriptHost.runtime_->global().setProperty(*scriptHost.runtime_, jsi::PropNameID::forAscii(*scriptHost.runtime_, "getDataAsync"), func);
+    ScriptHost::instance().runtime_->global().setProperty(*ScriptHost::instance().runtime_, jsi::PropNameID::forAscii(*ScriptHost::instance().runtime_, "getDataAsync"), func);
 
   });
 
-  std::string script("var promise = getDataAsync('xyz'); print('Hoy');promise.then(function(value) { print(value);});");
-  scriptHost.runScript(script);
+  // std::string script("var promise = getDataAsync('xyz'); print('Hoy');promise.then(function(value) { print(value);}); //# sourceURL=filename.js");
+  std::string script("print('HOYHOYHOY'); //# sourceURL=filename.js");
+  ScriptHost::instance().runScript(script);
 
-  scriptHost.jsiEventLoop_.t_.join();
+  ScriptHost::instance().jsiEventLoop_.t_.join();
 }

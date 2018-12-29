@@ -22,7 +22,7 @@ void BgEventLoop::threadProc() {
 }
 
 void BgEventLoop::loop() {
-	t_ = std::move(std::thread(&BgEventLoop::threadProc, this));
+	// t_ = std::move(std::thread(&BgEventLoop::threadProc, this));
 }
 
 void BgEventLoop::iteration()

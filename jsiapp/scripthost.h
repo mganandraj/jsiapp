@@ -10,6 +10,11 @@
 class ScriptHost {
 public:
 
+	static ScriptHost& instance() {
+    static ScriptHost inst;
+    return inst;
+	}
+
   std::unique_ptr<facebook::jsi::Runtime> runtime_;
 
   EventLoop jsiEventLoop_;

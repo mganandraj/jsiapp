@@ -395,6 +395,8 @@ class websocket_session : public std::enable_shared_from_this<websocket_session>
 
   boost::asio::steady_timer timer_;
 
+  bool writing{ false };
+
 public:
   // Take ownership of the socket
   explicit
@@ -470,7 +472,11 @@ public:
     if (ec)
       fail(ec, "read");
 
-    std::cout << "Received: " << boost::beast::buffers(buffer_.data()) << std::endl;
+    std::ostringstream os; os << boost::beast::buffers(buffer_.data()); 
+    std::string str = os.str();
+    std::cout << "WS Received: " << str << std::endl;
+
+    inspectorServer_->Delegate()->MessageReceived(1, str);
 
     // Clear the buffer
     buffer_.consume(buffer_.size());
@@ -482,10 +488,14 @@ public:
 
   // This can be called from any thread.
   void write(std::string text) {
-    queueAccessMutex.lock();
-    bool first = outQueue.empty();
-    outQueue.push(std::move(text));
-    queueAccessMutex.unlock();
+    bool first = false;
+    {
+      std::lock_guard<std::mutex> guard(queueAccessMutex);
+      first = outQueue.empty();
+      outQueue.push(std::move(text));
+    }
+
+    std::cout << "WS Writing: " << text << std::endl;
 
     // If freshly added into queue, start the timer which starts writing ...
     if (first) {
@@ -507,16 +517,26 @@ public:
     std::cout << "on_timer .. " << std::endl;
 
 
-    do_write();
+    do_write(true);
   }
 
-  void do_write()
+  void do_write(bool timer)
   {
-    queueAccessMutex.lock();
-    if (outQueue.empty()) return;
-    std::string message = outQueue.front();
-    outQueue.pop();
-    queueAccessMutex.unlock();
+    if (timer && writing) return;
+
+    std::string message;
+    {
+      std::lock_guard<std::mutex> guard(queueAccessMutex);
+
+      if (outQueue.empty()) {
+        writing = false;
+        return;
+      }
+      message = outQueue.front();
+      outQueue.pop();
+    }
+
+    writing = true;
 
     std::cout << "Writing: " << message << std::endl;
 
@@ -557,7 +577,7 @@ public:
     // buffer_.consume(buffer_.size());
 
     // do another write
-    do_write();
+    do_write(false);
 
   }
 };
@@ -667,7 +687,7 @@ public:
     // See if it is a WebSocket Upgrade
     if (websocket::is_upgrade(req_))
     {
-      // server->SessionStarted(SocketSession::From(socket), id);
+		inspectorServer_->SessionStarted(1);
 
       // Create a WebSocket websocket_session by transferring the socket
       ws_session = std::make_shared<websocket_session>(
@@ -825,3 +845,5 @@ void WsServerStart(node::inspector::InspectorSocketServer* server, const char*ho
 }
 
 void write_ws(std::string message) { ws_session->write(message); }
+
+void write_http(std::string message) { ws_session->write(message); }

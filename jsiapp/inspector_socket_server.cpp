@@ -271,7 +271,7 @@ namespace node {
 		}*/
 
 		bool InspectorSocketServer::SessionStarted(int session_id) {
-			bool connected = delegate_->StartSession(1);
+			bool connected = delegate_->StartSession(session_id);
 			
       /*if (connected) {
 				connected_sessions_[session->Id()] = session;

@@ -99,6 +99,8 @@ struct EventLoop
 */
   void add(std::shared_ptr<BgJsiTask> jsiBgItem);
 
+  void add(std::function<void()> func) { _taskQueue.push(std::move(func)); }
+
   void cancel(size_t timerId);
 
   EventLoop();

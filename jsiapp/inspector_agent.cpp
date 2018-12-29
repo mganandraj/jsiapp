@@ -19,6 +19,10 @@
 #include <chrono>
 #include <thread>
 
+#include <condition_variable>
+
+#include "scripthost.h"
+
 #define CHECK(expr) do { if (!(expr)) std::abort();} while(0)
 #define CHECK_EQ(expr1, expr2) do { if ((expr1) != (expr2) ) std::abort();} while(0)
 
@@ -300,6 +304,9 @@ namespace node {
 				// uv_sem_post(&start_sem_);
 			}
 
+      bool waiting_for_frontend_ = true;
+
+
 		private:
 			using MessageQueue =
 				std::vector<std::pair<int, std::unique_ptr<v8_inspector::StringBuffer>>>;
@@ -321,6 +328,11 @@ namespace node {
 			void NotifyMessageReceived();
 			State ToState(State state);
 
+			std::mutex incoming_message_cond_m_;
+			std::condition_variable incoming_message_cond_;
+
+      std::mutex state_m;
+
 			/*uv_sem_t start_sem_;
 			ConditionVariable incoming_message_cond_;
 			Mutex state_lock_;
@@ -338,6 +350,7 @@ namespace node {
 			uv_async_t io_thread_req_;*/
 			V8NodeInspector* inspector_;
 			v8::Platform* platform_;
+      v8::Isolate* isolate_;
 			MessageQueue incoming_message_queue_;
 			MessageQueue outgoing_message_queue_;
 			bool dispatching_messages_;
@@ -346,6 +359,7 @@ namespace node {
 
 			std::string script_name_;
 
+      
 			friend class ChannelImpl;
 			friend class DispatchOnInspectorBackendTask;
 			friend class SetConnectedTask;
@@ -377,10 +391,12 @@ namespace node {
 			virtual ~ChannelImpl() {}
 		private:
 			void sendResponse(int callId, std::unique_ptr<v8_inspector::StringBuffer> message) override {
-				sendMessageToFrontend(std::move(message));
+        std::cout << "#####CHANNEL####sendResponse#####" << StringViewToUtf8(message->string()) << std::endl;
+        sendMessageToFrontend(std::move(message));
 			}
 
 			void sendNotification(std::unique_ptr<v8_inspector::StringBuffer> message) override {
+        std::cout << "#####CHANNEL####sendNotification#####" << StringViewToUtf8(message->string()) << std::endl;
 				sendMessageToFrontend(std::move(message));
 			}
 
@@ -419,9 +435,10 @@ namespace node {
 				running_nested_loop_ = true;
 				while (!terminated_) {
 					agent_->WaitForFrontendMessage();
-					while (v8::platform::PumpMessageLoop(platform_, v8::Isolate::GetCurrent()))
-					{
-					}
+					//while (v8::platform::PumpMessageLoop(platform_, v8::Isolate::GetCurrent()))
+					//{
+					//}
+          agent_->DispatchMessages();
 				}
 				terminated_ = false;
 				running_nested_loop_ = false;
@@ -438,6 +455,8 @@ namespace node {
 
 			void connectFrontend() {
 				session_ = inspector_->connect(1, new ChannelImpl(agent_), v8_inspector::StringView());
+        StringView reason, details;
+        session_->schedulePauseOnNextStatement(reason, details);
 			}
 
 			void disconnectFrontend() {
@@ -445,7 +464,12 @@ namespace node {
 			}
 
 			void dispatchMessageFromFrontend(const v8_inspector::StringView& message) {
-				//CHECK(session_);
+				
+        std::string messagestr = StringViewToUtf8(message);
+
+        if (agent_->waiting_for_frontend_) 
+          agent_->waiting_for_frontend_ = messagestr.find("Runtime.runIfWaitingForDebugger") != std::string::npos;
+
 				session_->dispatchProtocolMessage(message);
 			}
 
@@ -565,6 +589,8 @@ namespace node {
 			if (path != nullptr)
 				script_name_ = path;
 
+      isolate_ = v8::Isolate::GetCurrent();
+
 			// InstallInspectorOnProcess();
 
       std::thread([this]() {
@@ -594,8 +620,9 @@ namespace node {
 			/*int err = uv_loop_init(&child_loop_);
 			CHECK_EQ(err, 0);*/
 
-      
+      WaitForFrontendMessage();
 
+      
 			port_ = port;
 			wait_ = wait;
 
@@ -608,9 +635,10 @@ namespace node {
 				return false;
 			}
 			state_ = State::kAccepting;
-			if (wait) {
-				DispatchMessages();
-			}
+      
+      while (waiting_for_frontend_)
+        DispatchMessages();
+
 			return true;
 		}
 
@@ -761,40 +789,46 @@ namespace node {
 			//server_ = nullptr;
 		}
 
-		bool AgentImpl::AppendMessage(MessageQueue* queue, int session_id,
-			std::unique_ptr<v8_inspector::StringBuffer> buffer) {
-			//Mutex::ScopedLock scoped_lock(state_lock_);
+		bool AgentImpl::AppendMessage(MessageQueue* queue, int session_id, std::unique_ptr<v8_inspector::StringBuffer> buffer) {
+      std::unique_lock<std::mutex> lock(state_m);
 			bool trigger_pumping = queue->empty();
 			queue->push_back(std::make_pair(session_id, std::move(buffer)));
 			return trigger_pumping;
 		}
 
 		void AgentImpl::SwapBehindLock(MessageQueue* vector1, MessageQueue* vector2) {
-			//Mutex::ScopedLock scoped_lock(state_lock_);
+      std::unique_lock<std::mutex> lock(state_m);
 			vector1->swap(*vector2);
 		}
 
 		void AgentImpl::PostIncomingMessage(int session_id,
 			const std::string& message) {
 			if (AppendMessage(&incoming_message_queue_, session_id, Utf8ToStringView(message))) {
-				v8::Isolate* isolate = v8::Isolate::GetCurrent();
-				platform_->CallOnForegroundThread(isolate,
-					new DispatchOnInspectorBackendTask(this));
-				isolate->RequestInterrupt(InterruptCallback, this);
-				// uv_async_send(data_written_);
+				
+        // v8::Isolate* isolate = v8::Isolate::GetCurrent();
+				// platform_->CallOnForegroundThread(isolate,
+				//	new DispatchOnInspectorBackendTask(this));
+				
+        isolate_->RequestInterrupt(InterruptCallback, this);
+				
+        ScriptHost::instance().jsiEventLoop_.add([this]() {
+          DispatchMessages();
+        });
+        
+        // uv_async_send(data_written_);
 			}
 			NotifyMessageReceived();
 		}
 
 		void AgentImpl::WaitForFrontendMessage() {
-			/*Mutex::ScopedLock scoped_lock(state_lock_);
+      std::cout << "###INSPECTOR###" << "WaitForFrontendMessage.\n";
+			std::unique_lock<std::mutex> lock(incoming_message_cond_m_);
 			if (incoming_message_queue_.empty())
-				incoming_message_cond_.Wait(scoped_lock);*/
+				incoming_message_cond_.wait(lock);
 		}
 
 		void AgentImpl::NotifyMessageReceived() {
-			/*Mutex::ScopedLock scoped_lock(state_lock_);
-			incoming_message_cond_.Broadcast(scoped_lock);*/
+			incoming_message_cond_.notify_all();
 		}
 
 		void AgentImpl::DispatchMessages() {
@@ -821,7 +855,7 @@ namespace node {
 						CHECK_EQ(State::kAccepting, state_);
 						session_id_ = pair.first;
 						state_ = State::kConnected;
-						fprintf(stderr, "Debugger attached.\n");
+            std::cout << "###IN###" << "Debugger attached.\n";
 						inspector_->connectFrontend();
 					}
 					else if (tag == TAG_DISCONNECT) {
@@ -832,10 +866,13 @@ namespace node {
 						else {
 							state_ = State::kAccepting;
 						}
+
+            std::cout << "###IN###" << "Debugger disconnected.\n";
 						inspector_->quitMessageLoopOnPause();
 						inspector_->disconnectFrontend();
 					}
 					else {
+            std::cout << "###IN###" << std::string(StringViewToUtf8(message)) << std::endl;
 						inspector_->dispatchMessageFromFrontend(message);
 					}
 				}
@@ -845,8 +882,21 @@ namespace node {
 		}
 
 		void AgentImpl::Write(int session_id, std::unique_ptr<v8_inspector::StringBuffer> inspector_message) {
-			AppendMessage(&outgoing_message_queue_, session_id,
-				std::move(inspector_message));
+			AppendMessage(&outgoing_message_queue_, session_id, std::move(inspector_message));
+
+			MessageQueue outgoing_messages;
+			SwapBehindLock(&outgoing_message_queue_, &outgoing_messages);
+			for (const MessageQueue::value_type& outgoing : outgoing_messages) {
+				StringView view = outgoing.second->string();
+				if (view.length() == 0) {
+					server_->Stop(nullptr);
+				}
+				else {
+					server_->Send(outgoing.first,
+						StringViewToUtf8(outgoing.second->string()));
+				}
+			}
+
 			// int err = uv_async_send(&io_thread_req_);
 			//CHECK_EQ(0, err);
 		}

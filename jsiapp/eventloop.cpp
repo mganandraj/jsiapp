@@ -25,8 +25,8 @@ void EventLoop::loop() {
 
 void EventLoop::iteration()
 {
-	std::this_thread::sleep_for(std::chrono::seconds(2));
-	std::cout << "JSI loop : iter\n";
+	// std::this_thread::sleep_for(std::chrono::seconds(2));
+	// std::cout << "JSI loop : iter\n";
   
 	
 	while (!_taskQueue.empty()) {
