@@ -10,6 +10,8 @@
 
 #include <iostream>
 
+#include "logger.h"
+
 using namespace facebook;
 
 class JSILogger {
@@ -18,18 +20,18 @@ public:
     std::shared_ptr<JSILogger> jsiLogger(new JSILogger());
     auto func = [jsiLogger](jsi::Runtime& runtime, const jsi::Value&, const jsi::Value* args, size_t count) {
       jsiLogger->ping();
-      std::cout<<args[0].asString(runtime).utf8(runtime).c_str() <<std::endl;
+      Logger::log(args[0].asString(runtime).utf8(runtime).c_str());
       return jsi::Value::undefined();
     };
     return std::move(func);
   }
 
   ~JSILogger() {
-	  std::cout << "~JSILogger\n";
+    Logger::log("~JSILogger");
   }
 
   void ping() {
-	  std::cout << "ping ping\n";
+    Logger::log("ping ping");
   }
 };
 
@@ -41,7 +43,7 @@ public:
       : hostObject_(hostObject) {}
 
     ~HostObjectImpl() {
-		std::cout << "~HostObjectImpl\n";
+      Logger::log("~HostObjectImpl");
     }
 
     jsi::Value get(jsi::Runtime& rt, const jsi::PropNameID& name) override {
@@ -80,7 +82,7 @@ public:
   }
 
   ~MyHostObject() {
-	  std::cout << "~MyHostObject\n";
+    Logger::log("~MyHostObject");
   }
 
   std::string name_{ "MyHostObject" };

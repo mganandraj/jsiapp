@@ -62,7 +62,7 @@ int main()
   });
 
   // std::string script("var promise = getDataAsync('xyz'); print('Hoy');promise.then(function(value) { print(value);}); //# sourceURL=filename.js");
-  std::string script("print('HOYHOYHOY'); //# sourceURL=filename.js");
+  std::string script("print('HOYHOYHOY'); //# sourceURL=D:\\work\\testjs\\filename.js");
   ScriptHost::instance().runScript(script);
 
   ScriptHost::instance().jsiEventLoop_.t_.join();

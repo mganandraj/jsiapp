@@ -23,6 +23,8 @@
 
 #include "scripthost.h"
 
+#include "logger.h"
+
 #define CHECK(expr) do { if (!(expr)) std::abort();} while(0)
 #define CHECK_EQ(expr1, expr2) do { if ((expr1) != (expr2) ) std::abort();} while(0)
 
@@ -265,7 +267,8 @@ namespace node {
 		public:
 			InspectorAgentDelegate(AgentImpl* agent, const std::string& script_path,
 				const std::string& script_name, bool wait);
-			bool StartSession(int session_id/*, const std::string& target_id*/) override;
+      void AssignServer(InspectorSocketServer* server) override {};
+			void StartSession(int session_id, const std::string& target_id) override;
 			void MessageReceived(int session_id, const std::string& message) override;
 			void EndSession(int session_id) override;
 			std::vector<std::string> GetTargetIds() override;
@@ -391,12 +394,12 @@ namespace node {
 			virtual ~ChannelImpl() {}
 		private:
 			void sendResponse(int callId, std::unique_ptr<v8_inspector::StringBuffer> message) override {
-        std::cout << "#####CHANNEL####sendResponse#####" << StringViewToUtf8(message->string()) << std::endl;
+        Logger::log("#####CHANNEL####sendResponse#####", StringViewToUtf8(message->string()));
         sendMessageToFrontend(std::move(message));
 			}
 
 			void sendNotification(std::unique_ptr<v8_inspector::StringBuffer> message) override {
-        std::cout << "#####CHANNEL####sendNotification#####" << StringViewToUtf8(message->string()) << std::endl;
+        Logger::log("#####CHANNEL####sendNotification#####", StringViewToUtf8(message->string()));
 				sendMessageToFrontend(std::move(message));
 			}
 
@@ -425,7 +428,12 @@ namespace node {
 				const uint8_t CONTEXT_NAME[] = "Node.js Main Context";
 				v8_inspector::StringView context_name(CONTEXT_NAME, sizeof(CONTEXT_NAME) - 1);
 				v8_inspector::V8ContextInfo info(v8::Isolate::GetCurrent()->GetCurrentContext(), 1, context_name);
-				inspector_->contextCreated(info);
+				
+        std::unique_ptr<StringBuffer> aux_data_buffer;
+        aux_data_buffer = Utf8ToStringView("{\"isDefault\":true}");
+        info.auxData = aux_data_buffer->string();
+
+        inspector_->contextCreated(info);
 			}
 
 			void runMessageLoopOnPause(int context_group_id) override {
@@ -456,7 +464,6 @@ namespace node {
 			void connectFrontend() {
 				session_ = inspector_->connect(1, new ChannelImpl(agent_), v8_inspector::StringView());
         StringView reason, details;
-        session_->schedulePauseOnNextStatement(reason, details);
 			}
 
 			void disconnectFrontend() {
@@ -482,13 +489,14 @@ namespace node {
 				return inspector_.get();
 			}
 
+      std::unique_ptr<v8_inspector::V8InspectorSession> session_;
 		private:
 			AgentImpl* agent_;
 			v8::Platform* platform_;
 			bool terminated_;
 			bool running_nested_loop_;
 			std::unique_ptr<V8Inspector> inspector_;
-			std::unique_ptr<v8_inspector::V8InspectorSession> session_;
+			
 		};
 
 		AgentImpl::AgentImpl() : delegate_(nullptr),
@@ -638,6 +646,13 @@ namespace node {
       
       while (waiting_for_frontend_)
         DispatchMessages();
+
+      std::string reasonstr("Break on start");
+      StringView reason(reinterpret_cast<const uint8_t*>(reasonstr.c_str()), reasonstr.size()), details(reinterpret_cast<const uint8_t*>(reasonstr.c_str()), reasonstr.size());
+      inspector_->session_->schedulePauseOnNextStatement(reason, details);
+
+
+      inspector_->consoleAPIMessage(1, v8::Isolate::MessageErrorLevel::kMessageError, reason, reason, 0, 0, nullptr);
 
 			return true;
 		}
@@ -821,7 +836,7 @@ namespace node {
 		}
 
 		void AgentImpl::WaitForFrontendMessage() {
-      std::cout << "###INSPECTOR###" << "WaitForFrontendMessage.\n";
+      Logger::log("###INSPECTOR###", "WaitForFrontendMessage.");
 			std::unique_lock<std::mutex> lock(incoming_message_cond_m_);
 			if (incoming_message_queue_.empty())
 				incoming_message_cond_.wait(lock);
@@ -855,7 +870,7 @@ namespace node {
 						CHECK_EQ(State::kAccepting, state_);
 						session_id_ = pair.first;
 						state_ = State::kConnected;
-            std::cout << "###IN###" << "Debugger attached.\n";
+            Logger::log("###IN###", "Debugger attached.");
 						inspector_->connectFrontend();
 					}
 					else if (tag == TAG_DISCONNECT) {
@@ -867,12 +882,12 @@ namespace node {
 							state_ = State::kAccepting;
 						}
 
-            std::cout << "###IN###" << "Debugger disconnected.\n";
+            Logger::log("###IN###", "Debugger disconnected.");
 						inspector_->quitMessageLoopOnPause();
 						inspector_->disconnectFrontend();
 					}
 					else {
-            std::cout << "###IN###" << std::string(StringViewToUtf8(message)) << std::endl;
+            Logger::log("###IN###", std::string(StringViewToUtf8(message)));
 						inspector_->dispatchMessageFromFrontend(message);
 					}
 				}
@@ -889,7 +904,7 @@ namespace node {
 			for (const MessageQueue::value_type& outgoing : outgoing_messages) {
 				StringView view = outgoing.second->string();
 				if (view.length() == 0) {
-					server_->Stop(nullptr);
+					server_->Stop();
 				}
 				else {
 					server_->Send(outgoing.first,
@@ -947,12 +962,9 @@ namespace node {
 			waiting_(wait) { }
 
 
-		bool InspectorAgentDelegate::StartSession(int session_id) {
-			if (connected_)
-				return false;
+		void InspectorAgentDelegate::StartSession(int session_id, const std::string& /*target_id*/) {
 			connected_ = true;
 			agent_->PostIncomingMessage(session_id, TAG_CONNECT);
-			return true;
 		}
 
 		void InspectorAgentDelegate::MessageReceived(int session_id,

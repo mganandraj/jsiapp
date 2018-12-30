@@ -38,6 +38,8 @@
 #include <mutex>
 #include <fstream>
 
+#include "logger.h"
+
 using tcp = boost::asio::ip::tcp;               // from <boost/asio/ip/tcp.hpp>
 namespace http = boost::beast::http;            // from <boost/beast/http.hpp>
 namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.hpp>
@@ -45,6 +47,59 @@ namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.h
 class websocket_session;
 std::shared_ptr<websocket_session> ws_session;
 
+// Constants for hybi-10 frame format.
+
+typedef int OpCode;
+
+const OpCode kOpCodeContinuation = 0x0;
+const OpCode kOpCodeText = 0x1;
+const OpCode kOpCodeBinary = 0x2;
+const OpCode kOpCodeClose = 0x8;
+const OpCode kOpCodePing = 0x9;
+const OpCode kOpCodePong = 0xA;
+
+const unsigned char kFinalBit = 0x80;
+const unsigned char kReserved1Bit = 0x40;
+const unsigned char kReserved2Bit = 0x20;
+const unsigned char kReserved3Bit = 0x10;
+const unsigned char kOpCodeMask = 0xF;
+const unsigned char kMaskBit = 0x80;
+const unsigned char kPayloadLengthMask = 0x7F;
+
+const size_t kMaxSingleBytePayloadLength = 125;
+const size_t kTwoBytePayloadLengthField = 126;
+const size_t kEightBytePayloadLengthField = 127;
+const size_t kMaskingKeyWidthInBytes = 4;
+
+static std::vector<char> encode_frame_hybi17(const std::vector<char>& message) {
+  std::vector<char> frame;
+  OpCode op_code = kOpCodeText;
+  frame.push_back(kFinalBit | op_code);
+  const size_t data_length = message.size();
+  if (data_length <= kMaxSingleBytePayloadLength) {
+    frame.push_back(static_cast<char>(data_length));
+  }
+  else if (data_length <= 0xFFFF) {
+    frame.push_back(kTwoBytePayloadLengthField);
+    frame.push_back((data_length & 0xFF00) >> 8);
+    frame.push_back(data_length & 0xFF);
+  }
+  else {
+    frame.push_back(kEightBytePayloadLengthField);
+    char extended_payload_length[8];
+    size_t remaining = data_length;
+    // Fill the length into extended_payload_length in the network byte order.
+    for (int i = 0; i < 8; ++i) {
+      extended_payload_length[7 - i] = remaining & 0xFF;
+      remaining >>= 8;
+    }
+    frame.insert(frame.end(), extended_payload_length,
+      extended_payload_length + 8);
+    // CHECK_EQ(0, remaining);
+  }
+  frame.insert(frame.end(), message.begin(), message.end());
+  return frame;
+}
 
 // Return a reasonable mime type based on the extension of a file.
 boost::beast::string_view
@@ -474,7 +529,7 @@ public:
 
     std::ostringstream os; os << boost::beast::buffers(buffer_.data()); 
     std::string str = os.str();
-    std::cout << "WS Received: " << str << std::endl;
+    Logger::log("WS Received: " , str);
 
     inspectorServer_->Delegate()->MessageReceived(1, str);
 
@@ -495,10 +550,12 @@ public:
       outQueue.push(std::move(text));
     }
 
-    std::cout << "WS Writing: " << text << std::endl;
+    do_write(true);
+
+    // Logger::log("WS Writing: " << text << std::endl;
 
     // If freshly added into queue, start the timer which starts writing ...
-    if (first) {
+    /*if (first) {
       timer_.async_wait(
         boost::asio::bind_executor(
           strand_,
@@ -506,7 +563,7 @@ public:
             &websocket_session::on_timer,
             shared_from_this(),
             std::placeholders::_1)));
-    }
+    }*/
   }
 
   void on_timer(boost::system::error_code ec)
@@ -514,7 +571,7 @@ public:
     if (ec && ec != boost::asio::error::operation_aborted)
       return fail(ec, "timer");
 
-    std::cout << "on_timer .. " << std::endl;
+    Logger::log("on_timer .. ");
 
 
     do_write(true);
@@ -522,11 +579,11 @@ public:
 
   void do_write(bool timer)
   {
-    if (timer && writing) return;
-
     std::string message;
     {
       std::lock_guard<std::mutex> guard(queueAccessMutex);
+
+      if (timer && writing) return;
 
       if (outQueue.empty()) {
         writing = false;
@@ -538,9 +595,16 @@ public:
 
     writing = true;
 
-    std::cout << "Writing: " << message << std::endl;
+    Logger::log("Writing: " , message);
+
+    /*std::vector<char> writechars;
+    std::transform(message.begin(), message.end(), std::back_inserter(writechars), [](unsigned char c) -> unsigned char { return c; });
+
+    std::vector<char> encchars = encode_frame_hybi17(writechars);
+    std::string encstr(encchars.begin(), encchars.end());*/
 
     size_t n = buffer_copy(bufferForWrite_.prepare(message.size()), boost::asio::buffer(message));
+    // size_t n = buffer_copy(bufferForWrite_.prepare(encstr.size()), boost::asio::buffer(encstr));
     bufferForWrite_.commit(n);
 
     ws_.text(true);
@@ -571,7 +635,9 @@ public:
     if (ec)
       return fail(ec, "write");
 
-    std::cout << "Writing completed .. " << bytes_transferred << " bytes." << std::endl;
+    std::ostringstream stream;
+    stream << "Writing completed .. " << bytes_transferred << " bytes.";
+    Logger::log(stream.str());
 
     // Clear the buffer
     // buffer_.consume(buffer_.size());

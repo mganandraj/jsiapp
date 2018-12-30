@@ -1,72 +1,99 @@
 #pragma once
 
 #include "inspector_agent.h"
+#include "inspector_socket.h"
 
 #include <map>
 #include <string>
 #include <vector>
 
+#include "tcp.h";
+
 namespace node {
-	namespace inspector {
+  namespace inspector {
 
-		class Closer;
-		class SocketSession;
+    class InspectorSocketServer;
+    class SocketSession;
+    class ServerSocket;
 
-		class SocketServerDelegate {
-		public:
-			virtual bool StartSession(int session_id/*, const std::string& target_id*/) = 0;
-			virtual void EndSession(int session_id) = 0;
-			virtual void MessageReceived(int session_id, const std::string& message) = 0;
-			virtual std::vector<std::string> GetTargetIds() = 0;
-			virtual std::string GetTargetTitle(const std::string& id) = 0;
-			virtual std::string GetTargetUrl(const std::string& id) = 0;
-		};
-
-		class InspectorSocketServer {
-		public:
-			using ServerCallback = void(*)(InspectorSocketServer*);
-			InspectorSocketServer(SocketServerDelegate* delegate, int port);
-			bool Start(/*uv_loop_t* loop*/);
-			void Stop(ServerCallback callback);
-			void Send(int session_id, const std::string& message);
-			void TerminateConnections(ServerCallback callback);
-
-      SocketServerDelegate* Delegate() { return delegate_; }
-
+    class SocketServerDelegate {
     public:
-		//private:
-			/*static bool HandshakeCallback(InspectorSocket* socket,
-				enum inspector_handshake_event state,
-				const std::string& path);*/
-			static void SocketConnectedCallback();
-			//static void ServerClosedCallback(uv_handle_t* server);
-			template<typename SomeUvStruct>
-			static InspectorSocketServer* From(SomeUvStruct* server) {
-				//return node::ContainerOf(&InspectorSocketServer::server_,
-				//	reinterpret_cast<uv_tcp_t*>(server));
-        return nullptr;
-			}
-			//bool RespondToGet(InspectorSocket* socket, const std::string& path);
-			//void SendListResponse(InspectorSocket* socket);
-			//void ReadCallback(InspectorSocket* socket, ssize_t read, const uv_buf_t* buf);
-			bool SessionStarted(/*const std::string& id*/int sessions_id);
-			void SessionTerminated(int id);
-			bool TargetExists(const std::string& id);
-			static void SocketSessionDeleter(SocketSession*);
-			
+      virtual void AssignServer(InspectorSocketServer* server) = 0;
+      virtual void StartSession(int session_id, const std::string& target_id) = 0;
+      virtual void EndSession(int session_id) = 0;
+      virtual void MessageReceived(int session_id, const std::string& message) = 0;
+      virtual std::vector<std::string> GetTargetIds() = 0;
+      virtual std::string GetTargetTitle(const std::string& id) = 0;
+      virtual std::string GetTargetUrl(const std::string& id) = 0;
+      virtual ~SocketServerDelegate() {}
+    };
 
-			//uv_loop_t* loop_;
-			SocketServerDelegate* const delegate_;
-			const int port_;
-			std::string path_;
-			// uv_tcp_t server_;
-			Closer* closer_;
-			// std::map<int, SocketSession*> connected_sessions_;
+    // HTTP Server, writes messages requested as TransportActions, and responds
+    // to HTTP requests and WS upgrades.
+
+    class InspectorSocketServer {
+    public:
+      InspectorSocketServer(std::unique_ptr<SocketServerDelegate> delegate, int port,
+        FILE* out = stderr);
+      ~InspectorSocketServer();
+
+      // Start listening on host/port
+      bool Start();
+
+      // Called by the TransportAction sent with InspectorIo::Write():
+      //   kKill and kStop
+      void Stop();
+      //   kSendMessage
+      void Send(int session_id, const std::string& message);
+      //   kKill
+      void TerminateConnections();
+      int Port() const;
+
+      // Session connection lifecycle
+      void Accept(int server_port/*, uv_stream_t* server_socket*/);
+      bool HandleGetRequest(int session_id, const std::string& host,
+        const std::string& path);
+      void SessionStarted(int session_id, const std::string& target_id,
+        const std::string& ws_id);
+      void SessionTerminated(int session_id);
+      void MessageReceived(int session_id, const std::string& message) {
+        delegate_->MessageReceived(session_id, message);
+      }
+      SocketSession* Session(int session_id);
+      //bool done() const {
+      //  return server_sockets_.empty() && connected_sessions_.empty();
+      //}
+
+      boost::asio::io_service io_service_;
+
+    private:
+      static void CloseServerSocket(ServerSocket*);
+      //using ServerSocketPtr = DeleteFnPtr<ServerSocket, CloseServerSocket>;
+
+      void SendListResponse(InspectorSocket* socket, const std::string& host,
+        SocketSession* session);
+      std::string GetFrontendURL(bool is_compat,
+        const std::string &formatted_address);
+      bool TargetExists(const std::string& id);
+
+      enum class ServerState { kNew, kRunning, kStopping, kStopped };
+      // uv_loop_t* loop_;
+      std::unique_ptr<SocketServerDelegate> delegate_;
+      const std::string host_;
+      int port_;
+      std::string path_;
+      // std::vector<ServerSocketPtr> server_sockets_;
+      //std::map<int, std::pair<std::string, std::unique_ptr<SocketSession>>>
+      //  connected_sessions_;
+
       int next_session_id_;
+      FILE* out_;
+      ServerState state_;
 
-			friend class SocketSession;
-			friend class Closer;
-		};
+      std::unique_ptr<SocketSession> connected_session_;
+      tcp_connection::pointer socket_;
 
-	}  // namespace inspector
+    };
+
+  }  // namespace inspector
 }  // namespace node

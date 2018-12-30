@@ -27,8 +27,8 @@ void BgEventLoop::loop() {
 
 void BgEventLoop::iteration()
 {
-	std::this_thread::sleep_for(std::chrono::seconds(2));
-	std::cout << "Bg Event Loop : iter\n";
+	//std::this_thread::sleep_for(std::chrono::seconds(2));
+	//std::cout << "Bg Event Loop : iter\n";
 
 
 	while (!_taskQueue.empty()) {

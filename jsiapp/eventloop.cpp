@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#include "logger.h"
+
 EventLoop::EventLoop() {
 
 }
@@ -30,14 +32,14 @@ void EventLoop::iteration()
   
 	
 	while (!_taskQueue.empty()) {
-		std::cout << "JSI loop : task pop\n";
+		Logger::log("JSI loop : task pop");
 		auto func = _taskQueue.front();
 		_taskQueue.pop();
 		func();
   }
 
   while (!_jsiBgCompletedItems.empty()) {
-    std::cout << "JSI loop : bg task pop\n";
+    Logger::log("JSI loop : bg task pop");
     std::shared_ptr<BgJsiTask> bgEvent = _jsiBgCompletedItems.front();
     _jsiBgCompletedItems.pop();
 
@@ -50,7 +52,7 @@ void EventLoop::iteration()
     return;
   }
 
-  std::cout << "JSI loop : timer event\n";
+  Logger::log("JSI loop : timer event");
 
   std::chrono::time_point<std::chrono::steady_clock> next = _timerEvents.begin()->next_;
   std::chrono::milliseconds delay = _timerEvents.begin()->delay_;
