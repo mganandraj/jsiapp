@@ -76,8 +76,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Program Files (x86)\GnuWin32\include;D:\work\jsiapp\deps\llhttp\include;.;..\deps\stubs;..\deps\Office.Google_V8.1.1.0\build\include;..\deps\boost.1.68.0.0\lib\native\include;..\deps\Folly\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>C:\OpenSSL-Win64\lib\VC;D:\work\jsiapp\Debug\lib;..\deps\boost_system-vc141.1.68.0.0\lib\native;..\deps\boost_date_time-vc141.1.68.0.0\lib\native;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <IncludePath>..\deps\OpenSSL-Win64\include;..\deps\llhttp\include;.;..\deps\stubs;..\deps\Office.Google_V8.1.1.0\build\include;..\deps\boost.1.68.0.0\lib\native\include;..\deps\Folly\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>..\deps\OpenSSL-Win64\lib\VC;..\Debug\lib;..\deps\boost_system-vc141.1.68.0.0\lib\native;..\deps\boost_date_time-vc141.1.68.0.0\lib\native;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
