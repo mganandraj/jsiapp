@@ -342,7 +342,7 @@ namespace node {
 			uv_thread_t thread_;
 			uv_loop_t child_loop_;*/
 
-			InspectorAgentDelegate* delegate_;
+			// InspectorAgentDelegate* delegate_;
 
 			int port_;
 			bool wait_;
@@ -499,7 +499,7 @@ namespace node {
 			
 		};
 
-		AgentImpl::AgentImpl() : delegate_(nullptr),
+		AgentImpl::AgentImpl(): 
 			port_(0),
 			wait_(false),
 			shutting_down_(false),
@@ -602,9 +602,8 @@ namespace node {
 			// InstallInspectorOnProcess();
 
       std::thread([this]() {
-        InspectorAgentDelegate delegate(this, "", script_name_, wait_);
-        delegate_ = &delegate;
-        InspectorSocketServer server(&delegate, port_);
+        // delegate_ = &delegate;
+        InspectorSocketServer server(std::make_unique<InspectorAgentDelegate>(this, "", script_name_, wait_), port_);
         server_ = &server;
         
         // This loops
@@ -664,7 +663,8 @@ namespace node {
 		}
 
 		bool AgentImpl::IsConnected() {
-			return delegate_ != nullptr && delegate_->IsConnected();
+			// return delegate_ != nullptr && delegate_->IsConnected();
+      return true;
 		}
 
 		bool AgentImpl::IsStarted() {

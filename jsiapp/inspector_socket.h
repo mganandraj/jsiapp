@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <tcp.h>
+
 template <typename T, void(*function)(T*)>
 struct FunctionDeleter {
   void operator()(T* pointer) const { function(pointer); }

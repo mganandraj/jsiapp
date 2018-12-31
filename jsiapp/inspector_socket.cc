@@ -1,3 +1,5 @@
+#include "stdafx.h"
+
 #include "inspector_socket.h"
 
 # include "llhttp.h"
@@ -6,8 +8,7 @@
 
 #include "tcp.h"
 
-#include <boost/uuid/detail/sha1.hpp>
-#include <iomanip>
+#include "utils.h"
 
 #define CHECK(expr) do { if (!(expr)) std::abort();} while(0)
 #define CHECK_EQ(expr1, expr2) do { if ((expr1) != (expr2) ) std::abort();} while(0)
@@ -53,44 +54,13 @@ constexpr ContainerOfHelper<Inner, Outer> ContainerOf(Inner Outer::*field,
   return ContainerOfHelper<Inner, Outer>(field, pointer);
 }
 
-char ToLower(char c) {
-  return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
-}
-
-std::string ToLower(const std::string& in) {
-  std::string out(in.size(), 0);
-  for (size_t i = 0; i < in.size(); ++i)
-    out[i] = ToLower(in[i]);
-  return out;
-}
-
-bool StringEqualNoCase(const char* a, const char* b) {
-  do {
-    if (*a == '\0')
-      return *b == '\0';
-    if (*b == '\0')
-      return *a == '\0';
-  } while (ToLower(*a++) == ToLower(*b++));
-  return false;
-}
-
-bool StringEqualNoCaseN(const char* a, const char* b, size_t length) {
-  for (size_t i = 0; i < length; i++) {
-    if (ToLower(a[i]) != ToLower(b[i]))
-      return false;
-    if (a[i] == '\0')
-      return true;
-  }
-  return true;
-}
-
 
 //#include "util-inl.h"
 
 //#define NODE_WANT_INTERNALS 1
 #include "base64.h"
 
-// #include "openssl/sha.h"  // Sha-1 hash
+#include "openssl/sha.h"  // Sha-1 hash
 
 #include <map>
 #include <string.h>
@@ -106,7 +76,7 @@ namespace inspector {
 
 class TcpHolder {
  public:
-  static void DisconnectAndDispose(TcpHolder* holder);
+   static void DisconnectAndDispose(TcpHolder* holder) {}
   using Pointer = DeleteFnPtr<TcpHolder, DisconnectAndDispose>;
 
   static Pointer Accept(tcp_connection::pointer socket, InspectorSocket::DelegatePointer delegate);
@@ -120,7 +90,7 @@ class TcpHolder {
   InspectorSocket::Delegate* delegate();
 
  private:
-   static void OnDataReceivedCb(std::vector<char>, void*data);
+   static void OnDataReceivedCb(std::vector<char>&, void*data);
 
   /*static TcpHolder* From(void* handle) {
     return node::ContainerOf(&TcpHolder::tcp_,
@@ -141,7 +111,7 @@ class TcpHolder {
    
    const InspectorSocket::DelegatePointer delegate_;
   ProtocolHandler* handler_;
-  std::vector<char> buffer;
+  std::vector<char> buffer_;
 };
 
 
@@ -241,28 +211,28 @@ static void generate_accept_string(const std::string& client_key,
   static const char ws_magic[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
   std::string input(client_key + ws_magic);
   
-  boost::uuids::detail::sha1 sha1;
+  /*boost::uuids::detail::sha1 sha1;
   sha1.process_bytes(&input[0], input.size());
 
   unsigned hash[5] = { 0 };
   sha1.get_digest(hash);
+*/
+  //std::stringstream sstream;
+  //sstream << std::setfill('0') << std::setw(8)
+  //  << std::hex << hash[0] << hash[1] << hash[2] << hash[3] << hash[4];
 
-  std::stringstream sstream;
-  sstream << std::setfill('0') << std::setw(8)
-    << std::hex << hash[0] << hash[1] << hash[2] << hash[3] << hash[4];
-
-  std::string str = sstream.str();
+  //std::string str = sstream.str();
 
   /*std::cout << "Hash: ";
   for (std::size_t i = 0; i < sizeof(hash) / sizeof(hash[0]); ++i) {
     std::cout << std::hex << hash[i];
   }*/
 
-  // char hash[SHA_DIGEST_LENGTH];
-  //SHA1(reinterpret_cast<const unsigned char*>(&input[0]), input.size(),
-  //     reinterpret_cast<unsigned char*>(hash));
+   char hash[SHA_DIGEST_LENGTH];
+  SHA1(reinterpret_cast<const unsigned char*>(&input[0]), input.size(),
+       reinterpret_cast<unsigned char*>(hash));
   
-  node::base64_encode(&str[0], str.length(), *buffer, sizeof(*buffer));
+  node::base64_encode((const char*)&hash[0], 20, *buffer, sizeof(*buffer));
 }
 
 static std::string TrimPort(const std::string& host) {
@@ -754,13 +724,14 @@ TcpHolder::TcpHolder(tcp_connection::pointer socket, InspectorSocket::DelegatePo
 
 // static
 TcpHolder::Pointer TcpHolder::Accept(tcp_connection::pointer socket, InspectorSocket::DelegatePointer delegate) {
-  socket->accept_sync();  
-  
   TcpHolder* tcp = new TcpHolder(socket, std::move(delegate));
 
   socket->registerReadCallbackData(tcp);
   socket->registerReadCallback(TcpHolder::OnDataReceivedCb);
-  socket->read_loop_async();
+
+  socket->start();  
+  
+  // socket->read_loop_async();
   
   return TcpHolder::Pointer(tcp);
   
@@ -800,6 +771,7 @@ int TcpHolder::WriteRaw(const std::vector<char>& buffer/*, uv_write_cb write_cb*
     delete wr;
   return err < 0;*/
   socket_->write_async(buffer);
+  return 0;
 }
 
 InspectorSocket::Delegate* TcpHolder::delegate() {
@@ -811,9 +783,9 @@ InspectorSocket::Delegate* TcpHolder::delegate() {
 //  delete From(handle);
 //}
 
-void TcpHolder::OnDataReceivedCb(std::vector<char>, void*data) {
+void TcpHolder::OnDataReceivedCb(std::vector<char>& wiredata, void*data) {
   TcpHolder* holder = reinterpret_cast<TcpHolder*>(data);
-  holder->handler_->OnData(&holder->buffer);
+  holder->handler_->OnData(&wiredata);
 }
 //void TcpHolder::OnDataReceivedCb(uv_stream_t* tcp, ssize_t nread,
 //                                 const uv_buf_t* buf) {

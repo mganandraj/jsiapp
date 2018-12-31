@@ -64,8 +64,6 @@ namespace node {
       //  return server_sockets_.empty() && connected_sessions_.empty();
       //}
 
-      boost::asio::io_service io_service_;
-
     private:
       static void CloseServerSocket(ServerSocket*);
       //using ServerSocketPtr = DeleteFnPtr<ServerSocket, CloseServerSocket>;

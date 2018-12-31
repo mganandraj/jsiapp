@@ -1,9 +1,4 @@
-#ifndef SRC_BASE64_H_
-#define SRC_BASE64_H_
-
-// #if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
-
-//#include "util.h"
+#pragma once 
 
 #include <stddef.h>
 #include <stdint.h>
@@ -190,8 +185,3 @@ static size_t base64_encode(const char* src,
   return dlen;
 }
 }  // namespace node
-
-
-#endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
-
-#endif  // SRC_BASE64_H_

@@ -76,8 +76,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\deps\llhttp\include;.;..\deps\stubs;..\deps\Office.Google_V8.1.1.0\build\include;..\deps\boost.1.68.0.0\lib\native\include;..\deps\Folly\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>..\deps\boost_system-vc141.1.68.0.0\lib\native;..\deps\boost_date_time-vc141.1.68.0.0\lib\native;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
+    <IncludePath>C:\Program Files (x86)\GnuWin32\include;D:\work\jsiapp\deps\llhttp\include;.;..\deps\stubs;..\deps\Office.Google_V8.1.1.0\build\include;..\deps\boost.1.68.0.0\lib\native\include;..\deps\Folly\include;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>C:\OpenSSL-Win64\lib\VC;D:\work\jsiapp\Debug\lib;..\deps\boost_system-vc141.1.68.0.0\lib\native;..\deps\boost_date_time-vc141.1.68.0.0\lib\native;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(NETFXKitsDir)Lib\um\x64</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -107,14 +107,14 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;JSI_EXPORT=;FOLLY_NO_CONFIG;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BOOST_ASIO_DISABLE_BOOST_REGEX;NOMINMAX;JSI_EXPORT=;FOLLY_NO_CONFIG;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>..\deps\Office.Google_V8.1.1.0\lib\x64\Debug;</AdditionalLibraryDirectories>
-      <AdditionalDependencies>v8.dll.lib;v8_libplatform.dll.lib;"..\deps\Folly\libs\Folly.lib";"..\deps\Folly\libs\FollyWin32.lib";kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libeay32MD.lib;llhttp.lib;v8.dll.lib;v8_libplatform.dll.lib;"..\deps\Folly\libs\Folly.lib";"..\deps\Folly\libs\FollyWin32.lib";kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -165,7 +165,9 @@
     <ClInclude Include="JSIDynamic.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="scripthost.h" />
+    <ClInclude Include="tcp.h" />
     <ClInclude Include="typedjsi.h" />
+    <ClInclude Include="utils.h" />
     <ClInclude Include="V8Runtime.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -182,7 +184,9 @@
     <ClCompile Include="logger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="scripthost.cpp" />
+    <ClCompile Include="tcp.cpp" />
     <ClCompile Include="typedjsi.cpp" />
+    <ClCompile Include="utils.cpp" />
     <ClCompile Include="V8Runtime.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -190,7 +194,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="WsServer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

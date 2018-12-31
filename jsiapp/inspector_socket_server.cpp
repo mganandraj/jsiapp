@@ -1,3 +1,5 @@
+#include "stdafx.h"
+
 #include "inspector_socket_server.h"
 
 #include <algorithm>
@@ -12,37 +14,7 @@
 #define CHECK_NE(expr1, expr2) do { if ((expr1) == (expr2) ) std::abort();} while(0)
 #define CHECK_NOT_NULL(expr) do { if (expr == nullptr)  std::abort();} while(0)
 
-
-char ToLower(char c) {
-  return c >= 'A' && c <= 'Z' ? c + ('a' - 'A') : c;
-}
-
-std::string ToLower(const std::string& in) {
-  std::string out(in.size(), 0);
-  for (size_t i = 0; i < in.size(); ++i)
-    out[i] = ToLower(in[i]);
-  return out;
-}
-
-bool StringEqualNoCase(const char* a, const char* b) {
-  do {
-    if (*a == '\0')
-      return *b == '\0';
-    if (*b == '\0')
-      return *a == '\0';
-  } while (ToLower(*a++) == ToLower(*b++));
-  return false;
-}
-
-bool StringEqualNoCaseN(const char* a, const char* b, size_t length) {
-  for (size_t i = 0; i < length; i++) {
-    if (ToLower(a[i]) != ToLower(b[i]))
-      return false;
-    if (a[i] == '\0')
-      return true;
-  }
-  return true;
-}
+#include "utils.h"
 
 namespace node {
   namespace inspector {
@@ -294,16 +266,19 @@ namespace node {
     void InspectorSocketServer::SessionStarted(int session_id,
       const std::string& id,
       const std::string& ws_key) {
-      SocketSession* session = Session(session_id);
-      if (!TargetExists(id)) {
-        session->Decline();
-        return;
-      }
+      //SocketSession* session = Session(session_id);
       
-      if (connected_session_) std::abort();
-      connected_session_.reset(session);
+      //TODODO
+      //if (!TargetExists(id)) {
+      //  session->Decline();
+      //  return;
+     // }
+      
+      //TODODO
+      // if (connected_session_) std::abort();
+      //connected_session_.reset(session);
       //connected_sessions_[session_id].first = id;
-      session->Accept(ws_key);
+      connected_session_->Accept(ws_key);
       delegate_->StartSession(session_id, id);
     }
 
@@ -401,7 +376,7 @@ namespace node {
     bool InspectorSocketServer::Start() {
 
       boost::asio::io_service io_service;
-      socket_ = tcp_connection::create(io_service_);
+      socket_ = tcp_connection::create(io_service, 8080);
       Accept(8080);
 
       io_service.run();
